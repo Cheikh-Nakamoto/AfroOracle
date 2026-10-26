@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"crypto/sha256"
@@ -141,3 +141,12 @@ func modelName() string {
 	}
 	return "Muse Spark 1.3 + SAM 3.1"
 }
+
+// Controller-facing wrappers; implementations stay unexported.
+func Transcribe(audioHint string) string { return transcribe(audioHint) }
+
+func Extract(transcript string, typedValue *float64) ExtractResult {
+	return extract(transcript, typedValue)
+}
+
+func ReportHash(payload any) string { return reportHash(payload) }

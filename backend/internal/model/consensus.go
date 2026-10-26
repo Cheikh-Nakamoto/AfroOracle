@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"math"
@@ -25,15 +25,6 @@ func reputation(score int) (level string, consensusMult, rewardMult float64) {
 	}
 }
 
-type Submission struct {
-	NodeID     string
-	Tier       int
-	RepScore   int
-	Value      float64
-	ProofScore *int // nil = automatic node (source hash) -> always accepted
-	Channel    string
-}
-
 // Weight = tierWeight[tier] * consensusMult. Automatic nodes (ProofScore nil)
 // have no reputation, so they use a neutral multiplier of 1.0.
 func (s Submission) Weight() float64 {
@@ -50,23 +41,6 @@ func (s Submission) Accepted() bool {
 		return true
 	}
 	return *s.ProofScore >= 50
-}
-
-type Outcome struct {
-	NodeID     string
-	Status     string
-	Note       string
-	Reward     float64
-	ScoreDelta float64
-	Deviation  float64
-	Weight     float64
-}
-
-type ConsensusResult struct {
-	Median     float64
-	Confidence int
-	Validated  bool
-	Outcomes   []Outcome
 }
 
 // weightedMedian returns the weighted median over accepted, weight>0 nodes.
@@ -172,4 +146,10 @@ func contextAgent(outliers []Submission) string {
 		return ""
 	}
 	return "écart > 15 % de la médiane; revue manuelle recommandée"
+}
+
+// RunConsensus is the controller-facing entry point; the implementation stays
+// unexported so the internal test can call it directly.
+func RunConsensus(subs []Submission, baseReward float64) ConsensusResult {
+	return runConsensus(subs, baseReward)
 }

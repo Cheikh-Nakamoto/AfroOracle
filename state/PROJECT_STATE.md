@@ -36,3 +36,26 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - **files_changed**: `demo/capture-list.md`, `demo/montage.md`, `demo/assets/*.svg`, `demo/assets/raw/*.json`
 - **open_questions**: none blocking. Final ~3-min mp4 must be rendered and dropped under `demo/` on demo day; path to be recorded here.
 - **next_task**: none — pipeline complete (00→07).
+
+## 08-documentation — done
+
+- **done**: `README.md` (replaces `# AfroOracle` stub): pitch, ASCII architecture, component table, quickstart, API surface, consensus summary, golden numbers, demo-day TODO. All commands/endpoints verified against `backend/main.go`, `backend/ai.go`, `backend/consensus.go`, `contracts/*.sol`, `frontend/app/page.tsx`, `frontend/package.json`, `scripts/demo.sh`, `.env.example`.
+- **files_changed**: `README.md`
+- **open_questions**: none.
+- **next_task**: none — pipeline complete (00→08).
+
+## 09-backend-mvc — done
+
+- **done**: refactored flat `package main` backend into Model/Controller/View with zero wire change. `go build`, `go vet`, `go test` pass from `backend/`; `./scripts/demo.sh` prints `DEMO OK: median 187 ... D excluded` with the same tx hash as pre-refactor (`0x6783…cb7d25`).
+- **decisions_made**: model keeps unexported impls (`runConsensus`, `transcribe`, `extract`, `proofScore`, `reportHash`, `chainPublish`) + thin exported wrappers (`RunConsensus`, `Transcribe`, `Extract`, `ReportHash`, `ChainPublish`) so `consensus_test.go` (now `package model`) still calls unexported fns; fingerprint map encapsulated in `InMemoryStore` via `ScorePhoto`; wire shapes preserved via identical map literals + verbatim-moved types (Go field names on submission/proof/outcome payloads); `SubmitReq` lives in controller as request DTO; `BaseReward` const lives in model.
+- **files_changed**: `backend/main.go` (composition root), `backend/internal/model/{model,consensus,ai,chain,store}.go` + `consensus_test.go`, `backend/internal/controller/{controller,submit,consensus,state,ask,whatsapp,root,middleware}.go`, `backend/internal/view/view.go`; deleted `backend/ai.go`, `backend/consensus.go`, `backend/consensus_test.go`.
+- **open_questions**: none.
+- **next_task**: none — pipeline complete (00→09).
+
+## 10-meta-client — done
+
+- **done**: `backend/internal/meta/{meta.go,meta_test.go}` — stdlib-only Meta Model API client. `New(apiKey)`, `Chat` (OpenAI-compatible `/v1/chat/completions`, JSON-object mode), `Transcribe` (`/v1/asr/transcribe`), `Segment` (SAM 3.1 via `/v1/responses`), `GenerateImage` (`/v1/images/generations`). Offline request-construction tests. `go build/vet/test` pass.
+- **decisions_made**: base `https://api.meta.ai/v1`, `Authorization: Bearer`; `New` takes the key (no env read in-package); no live calls in dev — tests assert URL/header/body.
+- **files_changed**: `backend/internal/meta/meta.go`, `backend/internal/meta/meta_test.go`
+- **open_questions**: none. Exact SAM/image field shapes adapted from docs; confirm on first live call.
+- **next_task**: [`agents/11-real-ai.md`](../agents/11-real-ai.md) — wire `model` AI funcs to `meta` + add audio upload to submit.
