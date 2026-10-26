@@ -1,0 +1,7 @@
+.env
+node_modules/
+.next/
+backend/afrioracle
+demo/assets/
+*.log
+*.db
