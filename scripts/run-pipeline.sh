@@ -33,6 +33,21 @@ FROM="${FROM:-00}"
 VERBOSE="${VERBOSE:-0}"
 LOGFILE="$REPO/state/run.log"
 
+# Run workers on Meta Model API (Muse Spark) instead of the default model.
+# Load META_API_KEY from .env and point the CLI at Meta's Anthropic-compatible
+# Messages API. Override with META_BASE_URL / META_MODEL if needed.
+if [[ -f "$REPO/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$REPO/.env"
+  set +a
+fi
+if [[ -n "${META_API_KEY:-}" ]]; then
+  export ANTHROPIC_BASE_URL="${META_BASE_URL:-https://api.meta.ai}"
+  export ANTHROPIC_API_KEY="$META_API_KEY"
+  export ANTHROPIC_MODEL="${META_MODEL:-muse-spark-1.3}"
+fi
+
 # Ordered list of agent numbers, in execution order. Numbers that may run in
 # parallel are grouped on one line; the script `wait`s between lines.
 ORDER=(
