@@ -66,19 +66,20 @@ export default function Page() {
   return (
     <main style={{ fontFamily: "sans-serif", padding: 20, maxWidth: 760 }}>
       <h1>AfriOracle — prix du mil à Kaolack</h1>
-      <button onClick={runConsensus}>Lancer le consensus</button>{" "}
-      <button onClick={ask}>Interroger l'assistant</button>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      <button onClick={runConsensus} aria-label="Lancer le consensus">Lancer le consensus</button>{" "}
+      <button onClick={ask} aria-label="Interroger l'assistant">Interroger l'assistant</button>
+      {error && <p role="alert" style={{ color: "red" }}>{error}</p>}
 
       <h2>Soumissions</h2>
       <table border={1} cellPadding={6} style={{ borderCollapse: "collapse" }}>
+        <caption>Soumissions des nœuds</caption>
         <thead>
           <tr>
-            <th>Nœud</th>
-            <th>Valeur</th>
-            <th>Preuve</th>
-            <th>Statut</th>
-            <th>Récompense</th>
+            <th scope="col">Nœud</th>
+            <th scope="col">Valeur</th>
+            <th scope="col">Preuve</th>
+            <th scope="col">Statut</th>
+            <th scope="col">Récompense</th>
           </tr>
         </thead>
         <tbody>
@@ -95,7 +96,7 @@ export default function Page() {
       </table>
 
       {consensus && (
-        <div>
+        <div aria-live="polite">
           <h2>Consensus</h2>
           <p>Médiane : {consensus.median} FCFA/kg</p>
           <p>Confiance : {consensus.confidence}%</p>
@@ -105,7 +106,7 @@ export default function Page() {
       )}
 
       {answer && (
-        <p>
+        <p aria-live="polite">
           <strong>Assistant :</strong> {answer}
         </p>
       )}
