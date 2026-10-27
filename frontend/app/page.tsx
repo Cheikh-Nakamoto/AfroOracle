@@ -37,7 +37,7 @@ type OracleState = {
 type SubmitResponse = {
   status: string;
   question?: string;
-  proof?: { score?: number; model?: string; duplicatePhoto?: boolean };
+  proof?: { Score?: number; Model?: string; DuplicatePhoto?: boolean };
   submission?: { NodeID: string; Value: number };
 };
 
@@ -155,7 +155,7 @@ export default function Page() {
       if (data.status === "clarify") {
         setNotice(data.question ?? "Une précision est nécessaire avant d’enregistrer la soumission.");
       } else {
-        const proof = data.proof?.score;
+        const proof = data.proof?.Score;
         setNotice(`Observation reçue${proof === undefined ? "" : ` · preuve ${proof}/100`}. Elle apparaîtra dans le consensus après vérification.`);
         setForm((previous) => ({ ...previous, transcript: "" }));
         await refresh(true);
