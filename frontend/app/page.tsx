@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = "";
 const DEMO_QUESTION = "Prix du mil à Kaolack ?";
 
 type Submission = {
@@ -46,8 +46,8 @@ type AssistantResponse = { answer: string };
 async function responseJSON<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = typeof body.error === "string" ? body.error : `Erreur serveur (${response.status})`;
-    throw new Error(message);
+    const details = typeof body.error === "string" ? body.error : "La requête a échoué";
+    throw new Error(`${details} (HTTP ${response.status})`);
   }
   return body as T;
 }
@@ -76,25 +76,35 @@ export default function Page() {
   const [notice, setNotice] = useState("");
   const [assistantQuestion, setAssistantQuestion] = useState(DEMO_QUESTION);
   const [answer, setAnswer] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("https://votre-domaine/webhook/whatsapp");
   const [form, setForm] = useState({ nodeId: "agent-kaolack-01", price: "187", slatePrice: "187", transcript: "" });
   const [photo, setPhoto] = useState<File | null>(null);
+  const refreshSequence = useRef(0);
 
   const refresh = useCallback(async (quiet = false) => {
+    const requestSequence = ++refreshSequence.current;
     if (!quiet) setRefreshing(true);
     try {
       const response = await fetch(`${API}/api/state`, { cache: "no-store" });
       const data = await responseJSON<OracleState>(response);
+      if (requestSequence !== refreshSequence.current) return;
+      if (!Array.isArray(data.submissions) || !Array.isArray(data.publications) || !Array.isArray(data.rewards)) {
+        throw new Error("Réponse /api/state invalide.");
+      }
       setOracle(data);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossible de joindre l’API AfriOracle.");
+      if (requestSequence === refreshSequence.current) setError(err instanceof Error ? err.message : "Impossible de joindre l’API AfriOracle.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestSequence === refreshSequence.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
   useEffect(() => {
+    setWebhookUrl(`${window.location.origin}/webhook/whatsapp`);
     void refresh(true);
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh(true);
@@ -152,7 +162,10 @@ export default function Page() {
     setNotice("");
     try {
       const response = await fetch(`${API}/api/consensus`, { method: "POST" });
-      await responseJSON<Publication>(response);
+      const result = await responseJSON<Publication>(response);
+      if (typeof result.median !== "number" || typeof result.confidence !== "number" || typeof result.validated !== "boolean") {
+        throw new Error("Réponse /api/consensus invalide.");
+      }
       await refresh(true);
       setNotice("Le calcul du consensus est terminé. Consultez la publication ci-dessous.");
     } catch (err) {
@@ -169,6 +182,7 @@ export default function Page() {
     try {
       const response = await fetch(`${API}/api/ask?q=${encodeURIComponent(assistantQuestion)}`);
       const data = await responseJSON<AssistantResponse>(response);
+      if (typeof data.answer !== "string") throw new Error("Réponse /api/ask invalide.");
       setAnswer(data.answer);
     } catch (err) {
       setError(err instanceof Error ? err.message : "L’assistant n’a pas pu répondre.");
@@ -231,7 +245,7 @@ export default function Page() {
         </button>
       </section>
 
-      {(error || notice) && <div className={`notice ${error ? "notice-error" : "notice-success"}`} role={error ? "alert" : "status"}>
+      {(error || notice) && <div className={`notice ${error ? "notice-error" : "notice-success"}`} role={error ? "alert" : "status"} aria-live={error ? "assertive" : "polite"}>
         <span>{error ? "!" : "✓"}</span><p>{error || notice}</p>{error && <button onClick={() => void refresh()}>Réessayer</button>}
       </div>}
 
@@ -241,9 +255,10 @@ export default function Page() {
             <div><p className="eyebrow">LE TERRAIN</p><h2>Observations récentes</h2></div>
             <span className="count-badge">{oracle?.submissions.length ?? 0} entrées</span>
           </div>
-          {loading ? <div className="empty-state"><span className="loading-mark">◌</span><p>Connexion à l’oracle…</p></div> : !oracle?.submissions.length ? <div className="empty-state"><span className="empty-symbol">⌁</span><p>Aucune observation pour l’instant.</p><small>Envoyez la première observation ou configurez le webhook WhatsApp.</small></div> :
+          {loading ? <div className="empty-state"><span className="loading-mark">◌</span><p>Connexion à l’oracle…</p></div> : error && !oracle ? <div className="empty-state"><span className="empty-symbol">!</span><p>Connexion impossible à l’oracle.</p><small>Vérifiez que le serveur API est démarré, puis réessayez.</small></div> : !oracle?.submissions.length ? <div className="empty-state"><span className="empty-symbol">⌁</span><p>Aucune observation pour l’instant.</p><small>Envoyez la première observation ou configurez le webhook WhatsApp.</small></div> :
             <div className="table-wrap"><table>
-              <thead><tr><th scope="col">SOURCE</th><th scope="col">PRIX</th><th scope="col">PREUVE</th><th scope="col">CANAL</th><th scope="col">ÉTAT</th></tr></thead>
+              <caption className="sr-only">Observations de prix soumises à l’oracle de Kaolack</caption>
+              <thead><tr><th scope="col">SOURCE</th><th scope="col">PRIX</th><th scope="col">PREUVE</th><th scope="col">CANAL</th><th scope="col">ÉTAT</th><th scope="col">RÉCOMPENSE</th></tr></thead>
               <tbody>{[...oracle.submissions].reverse().map((item, index) => {
                 const excluded = item.status === "excluded" || (item.proof_score !== null && item.proof_score < 50);
                 return <tr key={`${item.node_id}-${index}`}>
@@ -251,7 +266,8 @@ export default function Page() {
                   <td className="price-cell">{formatNumber(item.value)} <small>FCFA</small></td>
                   <td>{item.proof_score === null ? <span className="proof-auto">Source automatique</span> : <span className={`proof-score ${item.proof_score < 50 ? "proof-low" : ""}`}>{item.proof_score}<small>/100</small></span>}</td>
                   <td><span className="channel-label">{item.channel === "whatsapp" ? "WhatsApp" : item.channel || "—"}</span></td>
-                  <td><span className={`status-badge ${excluded ? "status-excluded" : item.status === "accepted" ? "status-accepted" : "status-pending"}`}><i />{statusLabel(item.status)}</span></td>
+                  <td><span className={`status-badge ${excluded ? "status-excluded" : item.status === "accepted" ? "status-accepted" : "status-pending"}`}><i />{excluded && item.proof_score !== null ? `Écartée · preuve ${item.proof_score}` : statusLabel(item.status)}</span>{item.score_delta !== 0 && <small className="score-delta">Réputation {item.score_delta > 0 ? "+" : ""}{formatNumber(item.score_delta, 1)}</small>}</td>
+                  <td className="reward-cell">{formatNumber(item.reward, 1)} <small>AFRO</small></td>
                 </tr>;
               })}</tbody>
             </table></div>}
@@ -281,7 +297,7 @@ export default function Page() {
           <section className="whatsapp-card">
             <div className="whatsapp-head"><span className="wa-icon">◉</span><span><b>Canal WhatsApp</b><small>Réception des observations</small></span><span className="setup-tag">À CONFIGURER</span></div>
             <p>Le backend reçoit les messages texte via un webhook Meta. L’association d’un compte utilisateur et les médias entrants ne sont pas encore implémentés.</p>
-            <div className="webhook-row"><code>/webhook/whatsapp</code><button onClick={() => void copyText(`${API}/webhook/whatsapp`)}>Copier l’URL</button></div>
+            <div className="webhook-row"><code>{webhookUrl.replace(/^https?:\/\//, "")}</code><button onClick={() => void copyText(webhookUrl)}>Copier l’URL</button></div>
             <small className="wa-note">URL publique requise · token de vérification configuré côté serveur</small>
           </section>
         </aside>
