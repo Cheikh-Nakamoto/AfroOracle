@@ -116,6 +116,7 @@ td { padding: 12px 14px; border-top: 1px solid #eff1eb; color: #53665b; font-siz
 .status-excluded { color: #a34839; background: #fbede8; }
 .status-pending { color: #8b712f; background: #f8f2e4; }
 .score-delta { display: block; margin-top: 4px; color: #9b6850; font-size: 9px; }
+.deviation-note { display: block; margin-top: 4px; color: #87948a; font: 9px var(--mono); }
 .reward-cell { color: #536b59; font: 500 10px var(--mono); }
 .reward-cell small { color: #95a197; font: 9px var(--sans); }
 .empty-state { display: grid; place-items: center; min-height: 205px; padding: 24px; color: #76867b; text-align: center; }

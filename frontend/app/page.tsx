@@ -42,6 +42,16 @@ type SubmitResponse = {
 };
 
 type AssistantResponse = { answer: string };
+type ConsensusOutcome = {
+  NodeID: string;
+  Status: string;
+  Note: string;
+  Reward: number;
+  ScoreDelta: number;
+  Deviation: number;
+  Weight: number;
+};
+type ConsensusResponse = Publication & { outcomes: ConsensusOutcome[] };
 
 async function responseJSON<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => ({}));
@@ -76,6 +86,7 @@ export default function Page() {
   const [notice, setNotice] = useState("");
   const [assistantQuestion, setAssistantQuestion] = useState(DEMO_QUESTION);
   const [answer, setAnswer] = useState("");
+  const [outcomes, setOutcomes] = useState<Record<string, ConsensusOutcome>>({});
   const [webhookUrl, setWebhookUrl] = useState("https://votre-domaine/webhook/whatsapp");
   const [form, setForm] = useState({ nodeId: "agent-kaolack-01", price: "187", slatePrice: "187", transcript: "" });
   const [photo, setPhoto] = useState<File | null>(null);
@@ -162,10 +173,12 @@ export default function Page() {
     setNotice("");
     try {
       const response = await fetch(`${API}/api/consensus`, { method: "POST" });
-      const result = await responseJSON<Publication>(response);
+      const result = await responseJSON<ConsensusResponse>(response);
       if (typeof result.median !== "number" || typeof result.confidence !== "number" || typeof result.validated !== "boolean") {
         throw new Error("Réponse /api/consensus invalide.");
       }
+      if (!Array.isArray(result.outcomes)) throw new Error("Réponse consensus sans détail des résultats.");
+      setOutcomes(Object.fromEntries(result.outcomes.map((item) => [item.NodeID, item])));
       await refresh(true);
       setNotice("Le calcul du consensus est terminé. Consultez la publication ci-dessous.");
     } catch (err) {
@@ -264,9 +277,9 @@ export default function Page() {
                 return <tr key={`${item.node_id}-${index}`}>
                   <td><span className="source-name"><span className={`source-avatar ${excluded ? "avatar-alert" : ""}`}>{item.node_id.slice(0, 1).toUpperCase()}</span><span>{item.node_id}<small>Tier {item.tier} · rép. {item.rep_score}</small></span></span></td>
                   <td className="price-cell">{formatNumber(item.value)} <small>FCFA</small></td>
-                  <td>{item.proof_score === null ? <span className="proof-auto">Source automatique</span> : <span className={`proof-score ${item.proof_score < 50 ? "proof-low" : ""}`}>{item.proof_score}<small>/100</small></span>}</td>
+                  <td>{item.proof_score === null ? <span className="proof-auto">N/A · source automatique (tier {item.tier})</span> : <span className={`proof-score ${item.proof_score < 50 ? "proof-low" : ""}`}>{item.proof_score}<small>/100</small></span>}</td>
                   <td><span className="channel-label">{item.channel === "whatsapp" ? "WhatsApp" : item.channel || "—"}</span></td>
-                  <td><span className={`status-badge ${excluded ? "status-excluded" : item.status === "accepted" ? "status-accepted" : "status-pending"}`}><i />{excluded && item.proof_score !== null ? `Écartée · preuve ${item.proof_score}` : statusLabel(item.status)}</span>{item.score_delta !== 0 && <small className="score-delta">Réputation {item.score_delta > 0 ? "+" : ""}{formatNumber(item.score_delta, 1)}</small>}</td>
+                  <td><span className={`status-badge ${excluded ? "status-excluded" : item.status === "accepted" ? "status-accepted" : "status-pending"}`}><i />{excluded && item.proof_score !== null ? `Écartée · preuve ${item.proof_score}` : statusLabel(item.status)}</span>{outcomes[item.node_id]?.Note && <small className="score-delta">{outcomes[item.node_id].Note}</small>}{outcomes[item.node_id] && <small className="deviation-note">Écart {formatNumber(outcomes[item.node_id].Deviation, 1)}%</small>}{item.score_delta !== 0 && <small className="score-delta">Réputation {item.score_delta > 0 ? "+" : ""}{formatNumber(item.score_delta, 1)}</small>}</td>
                   <td className="reward-cell">{formatNumber(item.reward, 1)} <small>AFRO</small></td>
                 </tr>;
               })}</tbody>
