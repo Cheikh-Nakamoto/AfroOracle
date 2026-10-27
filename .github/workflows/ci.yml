@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.mod
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      - name: Build
+        run: go build ./...
+
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        run: npm install
+      - name: Build
+        run: npm run build
+
+  docker:
+    name: Docker Compose smoke + demo
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build & start (mock AI, no META_API_KEY)
+        run: docker compose up -d --build
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/api/state && exit 0 || sleep 2
+          done
+          docker compose logs
+          exit 1
+      - name: Frontend up
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000 >/dev/null && exit 0 || sleep 2
+          done
+          docker compose logs frontend
+          exit 1
+      - name: Demo contract (median 187, confidence 100, D score 12)
+        run: BASE=http://localhost:8000 bash scripts/demo.sh
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
