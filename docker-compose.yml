@@ -21,9 +21,8 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        # Browser-side URL of the backend (page.tsx is a client component).
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    environment:
+      AFRIORACLE_BACKEND_URL: http://backend:8000
     ports:
       - "3000:3000"
     depends_on:

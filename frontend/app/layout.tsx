@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AfriOracle",
-  description: "Prix du mil à Kaolack — démo",
+  title: "AfriOracle — Prix du mil à Kaolack",
+  description: "Observations locales, prix consensuel et publication vérifiable pour le marché du mil à Kaolack.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body style={{ margin: 0 }}>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
