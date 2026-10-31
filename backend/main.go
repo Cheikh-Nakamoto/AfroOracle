@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"afrioracle/internal/controller"
+	"afrioracle/internal/meta"
 	"afrioracle/internal/model"
 )
 
@@ -24,6 +25,14 @@ func main() {
 		}
 	}
 	c.Nodes = nodes
+	c.WhatsAppAppSecret = os.Getenv("WHATSAPP_APP_SECRET")
+	c.WhatsAppVerifyToken = os.Getenv("WHATSAPP_VERIFY_TOKEN")
+	if token, version := os.Getenv("WHATSAPP_TOKEN"), os.Getenv("WHATSAPP_GRAPH_API_VERSION"); token != "" && version != "" {
+		c.WhatsAppMedia = controller.NewWhatsAppMediaDownloader(token, version, nil)
+	}
+	if apiKey := os.Getenv("META_API_KEY"); apiKey != "" {
+		c.WhatsAppTranscriber = meta.New(apiKey)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/submit", controller.Cors(c.HandleSubmit))

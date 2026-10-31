@@ -91,3 +91,11 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - **files_changed**: `agents/15-consensus-integrity.md`, `backend/internal/model/{model,consensus,store}.go`, `backend/internal/controller/consensus.go`, `backend/internal/controller/consensus_batch_test.go`.
 - **open_questions**: Batch idempotency survives only for the lifetime of the in-memory store; durable persistence is a separate task.
 - **next_task**: BE-06 WhatsApp signature validation and fail-closed webhook handling.
+
+## 16-whatsapp-webhook — done
+
+- **done**: WhatsApp POSTs verify `X-Hub-Signature-256` with HMAC-SHA256 over the raw request bytes and constant-time comparison. GET verification fails closed when its token is unset. Invalid JSON, oversized payloads, missing `wamid`, and unsupported/empty messages are rejected or logged. Message IDs are reserved under a mutex for 24-hour retry deduplication; valid events and duplicates receive HTTP 200. Audio messages download bounded media using the configured Graph API and transcribe through the injected Meta client.
+- **decisions_made**: Media download is restricted to Meta's `lookaside.fbsbx.com` HTTPS host; no arbitrary webhook URL is fetched. Audio work has a bounded timeout and returns 502 on upstream errors so Meta can retry.
+- **files_changed**: `agents/16-whatsapp-webhook.md`, `.env.example`, `backend/internal/controller/controller.go`, `backend/internal/controller/whatsapp.go`, `backend/internal/controller/whatsapp_media.go`, `backend/internal/controller/whatsapp_test.go`, `backend/main.go`.
+- **open_questions**: `wamid` deduplication is in memory and resets on restart. WhatsApp replies and live Meta account validation remain separate integration work.
+- **next_task**: BE-03 real Meta AI wiring is available in the separate `feat/meta-ai-integration` PR; after integration, BE-05 PostgreSQL persistence is the next backend issue.
