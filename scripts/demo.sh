@@ -28,7 +28,7 @@ trap cleanup EXIT
 if ! curl -sf -o /dev/null "$BASE/api/state" 2>/dev/null; then
   echo "==> no server at $BASE, starting backend (mock AI path)..."
   (cd backend && go build -o /tmp/afrioracle-demo-bin .)
-  PORT="${PORT:-8000}" META_API_KEY= /tmp/afrioracle-demo-bin > /tmp/afrioracle-demo.log 2>&1 &
+  PORT="${PORT:-8000}" META_API_KEY= AFRIORACLE_DEMO_MODE=1 /tmp/afrioracle-demo-bin > /tmp/afrioracle-demo.log 2>&1 &
   SERVER_PID="$!"
   STARTED_BY_ME=1
   for _ in $(seq 1 40); do
@@ -42,6 +42,10 @@ if ! curl -sf -o /dev/null "$BASE/api/state" 2>/dev/null; then
 fi
 
 b64() { printf '%s' "$1" | base64 -w 0; }
+
+node_key() {
+  printf 'afrioracle-demo-key-v1-%s-d7f3a0c948b16e2d' "$1"
+}
 
 # submit <node> <tier> <rep> <value> <photo_price> <photo_tag> <channel>
 # photo_tag is the unique-per-photo label; the fraudster reuses another
@@ -62,7 +66,8 @@ submit() {
       transcript: ("Le prix du mil à Kaolack est de \($value) francs CFA le kilo."),
       channel: $channel}' \
     | curl -s -o /tmp/afrioracle-submit.json -w '%{http_code}' \
-      -X POST "$BASE/api/submit" -H 'Content-Type: application/json' -d @-)
+      -X POST "$BASE/api/submit" -H 'Content-Type: application/json' \
+      -H "Authorization: Bearer $(node_key "$node")" -d @-)
   if [ "$code" != "201" ]; then
     echo "FAIL: submit $node -> HTTP $code: $(cat /tmp/afrioracle-submit.json)"
     exit 1
@@ -82,7 +87,8 @@ submit H 2 68 184 184 "H-slate-184" "app"
 code=$(jq -n '{node_id: "FAO", tier: 3, rep_score: 0, value: 190,
   transcript: "FAO source hash: millet Kaolack 190.", channel: "api"}' \
   | curl -s -o /tmp/afrioracle-submit.json -w '%{http_code}' \
-    -X POST "$BASE/api/submit" -H 'Content-Type: application/json' -d @-)
+    -X POST "$BASE/api/submit" -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer $(node_key FAO)" -d @-)
 [ "$code" = "201" ] || { echo "FAIL: submit FAO -> HTTP $code"; exit 1; }
 echo "  accepted FAO (tier 3 automatic, value 190)"
 
@@ -90,7 +96,8 @@ echo "==> submitting scripted fraudster D (reuses A's photo)..."
 submit D 2 61 240 240 "A-slate-187" "app"
 
 echo "==> running consensus..."
-code=$(curl -s -o /tmp/afrioracle-consensus.json -w '%{http_code}' -X POST "$BASE/api/consensus")
+code=$(curl -s -o /tmp/afrioracle-consensus.json -w '%{http_code}' -X POST "$BASE/api/consensus" \
+  -H "Authorization: Bearer $(node_key A)")
 [ "$code" = "200" ] || { echo "FAIL: consensus -> HTTP $code: $(cat /tmp/afrioracle-consensus.json)"; exit 1; }
 
 MEDIAN=$(jq -r .median /tmp/afrioracle-consensus.json)

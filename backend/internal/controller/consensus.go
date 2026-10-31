@@ -13,6 +13,10 @@ func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
 		return
 	}
+	if _, _, ok := c.authenticate(r); !ok {
+		writeAuthError(w, http.StatusUnauthorized, "valid bearer credential required")
+		return
+	}
 
 	stored := c.Store.Submissions()
 	subs := make([]model.Submission, 0, len(stored))

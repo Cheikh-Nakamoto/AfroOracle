@@ -27,11 +27,26 @@ func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
 		return
 	}
+	principal, credential, ok := c.authenticate(r)
+	if !ok {
+		writeAuthError(w, http.StatusUnauthorized, "valid bearer credential required")
+		return
+	}
 	var req SubmitReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
+	if req.NodeID != principal {
+		writeAuthError(w, http.StatusForbidden, "credential does not match node_id")
+		return
+	}
+	if (req.Tier != 0 && req.Tier != credential.Tier) || (req.RepScore != 0 && req.RepScore != credential.RepScore) {
+		writeAuthError(w, http.StatusForbidden, "tier and rep_score are assigned by the server")
+		return
+	}
+	req.Tier = credential.Tier
+	req.RepScore = credential.RepScore
 	status, resp := c.processSubmit(req)
 	view.WriteJSON(w, status, resp)
 }

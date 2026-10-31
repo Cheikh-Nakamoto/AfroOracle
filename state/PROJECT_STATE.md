@@ -59,3 +59,11 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - **files_changed**: `backend/internal/meta/meta.go`, `backend/internal/meta/meta_test.go`
 - **open_questions**: none. Exact SAM/image field shapes adapted from docs; confirm on first live call.
 - **next_task**: [`agents/11-real-ai.md`](../agents/11-real-ai.md) — wire `model` AI funcs to `meta` + add audio upload to submit.
+
+## 12-node-auth — done
+
+- **done**: Added a startup-loaded per-node Bearer key registry. `/api/submit` now rejects missing credentials, mismatched node IDs, and forged tier/reputation, then applies registry metadata. `/api/consensus` requires a registered credential; state and ask remain public. Added constant-time hashed-key comparisons, credential JSON config, explicit demo-only seeded keys, CORS Authorization support, handler tests, and demo request headers.
+- **decisions_made**: Any registered node may trigger consensus after enough accepted submissions; this follows the issue's per-node credential decision. Public demo keys are only loaded with `AFRIORACLE_DEMO_MODE=1`; production starts with no submit credentials unless `AFRIORACLE_NODE_CREDENTIALS` is configured.
+- **files_changed**: `agents/12-node-auth.md`, `.env.example`, `backend/internal/controller/auth.go`, `backend/internal/controller/auth_test.go`, `backend/internal/controller/controller.go`, `backend/internal/controller/submit.go`, `backend/internal/controller/consensus.go`, `backend/internal/controller/middleware.go`, `backend/main.go`, `scripts/demo.sh`.
+- **open_questions**: None for the demo. Production deployment must provision unique random node keys in `AFRIORACLE_NODE_CREDENTIALS`.
+- **next_task**: BE-02 empty-submission fabrication (reject empty transcript/value/audio and preserve deterministic demo behavior).
