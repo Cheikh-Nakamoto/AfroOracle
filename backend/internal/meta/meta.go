@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 // DefaultBaseURL is the Meta Model API root all endpoint paths hang off.
@@ -53,7 +54,15 @@ type Client struct {
 
 // New returns a Client authenticating with apiKey against DefaultBaseURL.
 func New(apiKey string) *Client {
-	return &Client{baseURL: DefaultBaseURL, apiKey: apiKey, http: http.DefaultClient}
+	return &Client{baseURL: DefaultBaseURL, apiKey: apiKey, http: &http.Client{Timeout: 30 * time.Second}}
+}
+
+// NewWithHTTPClient is useful for controlled deployments and offline tests.
+func NewWithHTTPClient(apiKey string, client *http.Client) *Client {
+	if client == nil {
+		client = &http.Client{Timeout: 30 * time.Second}
+	}
+	return &Client{baseURL: DefaultBaseURL, apiKey: apiKey, http: client}
 }
 
 // postJSON POSTs body as JSON to baseURL+path and returns the raw response
@@ -148,6 +157,41 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error
 		out.Text = parsed.Choices[0].Message.Content
 	}
 	return out, nil
+}
+
+// ChatWithImage asks Muse Spark to reason over a local image and a prompt.
+// The image is sent as a base64 data URL in the OpenAI-compatible chat shape.
+func (c *Client) ChatWithImage(ctx context.Context, prompt string, image []byte) (ChatResponse, error) {
+	if len(image) == 0 {
+		return ChatResponse{}, fmt.Errorf("meta: ChatWithImage: empty image")
+	}
+	dataURL := "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(image)
+	body := map[string]any{
+		"model": ModelChat,
+		"messages": []any{map[string]any{"role": "user", "content": []any{
+			map[string]any{"type": "text", "text": prompt},
+			map[string]any{"type": "image_url", "image_url": map[string]string{"url": dataURL}},
+		}}},
+		"response_format": map[string]string{"type": "json_object"},
+	}
+	raw, err := c.postJSON(ctx, "/chat/completions", body)
+	if err != nil {
+		return ChatResponse{}, err
+	}
+	var parsed struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return ChatResponse{}, fmt.Errorf("meta: decode vision response: %w", err)
+	}
+	if len(parsed.Choices) == 0 || parsed.Choices[0].Message.Content == "" {
+		return ChatResponse{}, fmt.Errorf("meta: vision response has no content")
+	}
+	return ChatResponse{Text: parsed.Choices[0].Message.Content, Raw: raw}, nil
 }
 
 // Transcribe POSTs raw audio bytes to /v1/asr/transcribe (Muse Voice

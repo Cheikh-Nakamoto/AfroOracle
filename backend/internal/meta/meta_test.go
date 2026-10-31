@@ -134,6 +134,34 @@ func TestChatServerError(t *testing.T) {
 	}
 }
 
+func TestChatWithImageRequestConstruction(t *testing.T) {
+	var got capture
+	srv := serveCapture(&got, `{"choices":[{"message":{"content":"{\"price\":187}"}}]}`, "application/json", http.StatusOK)
+	defer srv.Close()
+	c := testClient(srv)
+	image := []byte{0xff, 0xd8, 0xff}
+	if _, err := c.ChatWithImage(context.Background(), "read the slate", image); err != nil {
+		t.Fatal(err)
+	}
+	if got.path != "/chat/completions" || got.auth != "Bearer test-key" {
+		t.Fatalf("path=%q auth=%q", got.path, got.auth)
+	}
+	messages, _ := got.jsonBody["messages"].([]any)
+	if len(messages) != 1 {
+		t.Fatalf("messages=%v", messages)
+	}
+	message, _ := messages[0].(map[string]any)
+	parts, _ := message["content"].([]any)
+	if len(parts) != 2 {
+		t.Fatalf("content=%v", message["content"])
+	}
+	imagePart, _ := parts[1].(map[string]any)
+	urlObj, _ := imagePart["image_url"].(map[string]any)
+	if imagePart["type"] != "image_url" || urlObj["url"] != "data:image/jpeg;base64,/9j/" {
+		t.Fatalf("image content=%v", parts[1])
+	}
+}
+
 func TestTranscribeRequestConstruction(t *testing.T) {
 	var got capture
 	srv := serveCapture(&got, `{"text":"prix mil deux cent cinquante"}`, "application/json", http.StatusOK)
