@@ -59,3 +59,11 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - **files_changed**: `backend/internal/meta/meta.go`, `backend/internal/meta/meta_test.go`
 - **open_questions**: none. Exact SAM/image field shapes adapted from docs; confirm on first live call.
 - **next_task**: [`agents/11-real-ai.md`](../agents/11-real-ai.md) — wire `model` AI funcs to `meta` + add audio upload to submit.
+
+## 11-real-ai — done
+
+- **done**: Wired mock and real AI adapters through injected `model.AI`; configured startup mode once from `META_API_KEY` and logs `ai=mock` or `ai=real`. Real mode uses Muse Voice Transcribe, Muse Spark extraction and image price reading, and SAM segmentation. Provider failures return 502 without mock fallback. `/api/submit` accepts optional `audio_b64`/`audio_format`. Real mode ignores client-supplied `photo_price`; duplicate detection and server score bands remain authoritative. Empty media has no fingerprint. Added timeout, image chat support, and offline adapter/request tests.
+- **decisions_made**: Existing `transcript` path remains the deterministic demo input; real audio bytes require a configured API key. Real-mode submissions without an image receive the unreadable-slate score. Meta image input uses the documented OpenAI-compatible chat vision content format.
+- **files_changed**: `agents/11-real-ai.md`, `backend/internal/model/ai_real.go`, `backend/internal/model/ai_real_test.go`, `backend/internal/model/store.go`, `backend/internal/meta/meta.go`, `backend/internal/meta/meta_test.go`, `backend/internal/controller/controller.go`, `backend/internal/controller/submit.go`, `backend/internal/controller/whatsapp.go`, `backend/main.go`.
+- **open_questions**: No live Meta calls were made; confirm exact response behavior and billing with a single authorized demo run.
+- **next_task**: Review remaining backend issues, starting with BE-01 authentication before any public deployment.

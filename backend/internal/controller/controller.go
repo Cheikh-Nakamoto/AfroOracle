@@ -9,8 +9,9 @@ import "afrioracle/internal/model"
 // Controllers bundles the handlers with their store.
 type Controllers struct {
 	Store model.Store
+	AI    model.AI
 }
 
-func NewControllers(s model.Store) *Controllers {
-	return &Controllers{Store: s}
+func NewControllers(s model.Store, ai model.AI) *Controllers {
+	return &Controllers{Store: s, AI: ai}
 }

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -41,7 +42,7 @@ func (c *Controllers) HandleWhatsapp(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if body != "" {
-			status, resp := c.processSubmit(SubmitReq{Transcript: body, Channel: "whatsapp"})
+			status, resp := c.processSubmit(context.Background(), SubmitReq{Transcript: body, Channel: "whatsapp"})
 			view.WriteJSON(w, status, resp)
 			return
 		}

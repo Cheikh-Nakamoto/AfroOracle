@@ -46,6 +46,11 @@ func (s *InMemoryStore) Submissions() []StateSub {
 // ScorePhoto runs proofScore against the store's fingerprint set so duplicate
 // photos are detected across submissions.
 func (s *InMemoryStore) ScorePhoto(photoPrice *float64, submitted float64, photoBytes []byte) ProofResult {
+	if len(photoBytes) == 0 {
+		// An absent image has no content fingerprint and must not make every
+		// subsequent submission look like a reused photo.
+		return proofScore(photoPrice, submitted, nil, map[string]bool{})
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return proofScore(photoPrice, submitted, photoBytes, s.fingerprints)
