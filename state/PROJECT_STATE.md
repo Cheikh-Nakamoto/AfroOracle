@@ -75,3 +75,11 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - **files_changed**: `agents/13-empty-submit.md`, `backend/internal/controller/submit.go`, `backend/internal/controller/auth_test.go`, `backend/internal/model/ai.go`, `backend/internal/model/ai_test.go`.
 - **open_questions**: None.
 - **next_task**: BE-04 chain publication must report `simulated` rather than `polygon-amoy` when no real transaction is sent.
+
+## 14-chain-label — done
+
+- **done**: `ChainPublish` now always labels the deterministic report hash `simulated`, even when Polygon credentials are present. Added a regression test for configured RPC/key values.
+- **decisions_made**: A configured endpoint and key do not demonstrate that a contract call or receipt exists; the label remains simulated until the actual go-ethereum publish path is implemented.
+- **files_changed**: `agents/14-chain-label.md`, `backend/internal/model/chain.go`, `backend/internal/model/chain_test.go`.
+- **open_questions**: Real Amoy publication remains separate work and needs deployed contract configuration plus a receipt-backed transaction.
+- **next_task**: BE-07/BE-08 consensus integrity: count independent sources and prevent repeated consensus calls from publishing/rewarding again.
