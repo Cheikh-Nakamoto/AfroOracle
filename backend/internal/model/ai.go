@@ -33,13 +33,9 @@ type ProofResult struct {
 	Model          string
 }
 
-// transcribe converts an audio hint to text. In the demo (mock) path it simply
-// returns the hint, or a default French sentence when the hint is empty.
-// Real path: Muse Voice Transcribe.
+// transcribe returns the supplied transcript hint. Empty input stays empty so
+// missing observations cannot fabricate a market price.
 func transcribe(audioHint string) string {
-	if strings.TrimSpace(audioHint) == "" {
-		return "Le prix du mil à Kaolack est de 187 francs CFA le kilo."
-	}
 	return audioHint
 }
 

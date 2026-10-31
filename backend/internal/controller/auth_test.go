@@ -85,3 +85,31 @@ func TestDemoRegistryIncludesAllowListedAutomaticNode(t *testing.T) {
 		t.Fatalf("identity=%q credential=%+v ok=%t", id, credential, ok)
 	}
 }
+
+func TestEmptySubmitReturnsBadRequestWithoutChangingStore(t *testing.T) {
+	c, store := authController(t)
+	r := httptest.NewRequest(http.MethodPost, "/api/submit", strings.NewReader(`{"node_id":"A"}`))
+	r.Header.Set("Authorization", "Bearer "+testNodeKey)
+	w := httptest.NewRecorder()
+	c.HandleSubmit(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	if got := len(store.Submissions()); got != 0 {
+		t.Fatalf("empty request stored %d submissions", got)
+	}
+}
+
+func TestWhitespaceTranscriptWithoutTypedValueIsRejected(t *testing.T) {
+	c, store := authController(t)
+	r := httptest.NewRequest(http.MethodPost, "/api/submit", strings.NewReader(`{"node_id":"A","transcript":"  \n\t"}`))
+	r.Header.Set("Authorization", "Bearer "+testNodeKey)
+	w := httptest.NewRecorder()
+	c.HandleSubmit(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	if got := len(store.Submissions()); got != 0 {
+		t.Fatalf("blank transcript stored %d submissions", got)
+	}
+}

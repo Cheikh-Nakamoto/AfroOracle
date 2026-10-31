@@ -67,3 +67,11 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - **files_changed**: `agents/12-node-auth.md`, `.env.example`, `backend/internal/controller/auth.go`, `backend/internal/controller/auth_test.go`, `backend/internal/controller/controller.go`, `backend/internal/controller/submit.go`, `backend/internal/controller/consensus.go`, `backend/internal/controller/middleware.go`, `backend/main.go`, `scripts/demo.sh`.
 - **open_questions**: None for the demo. Production deployment must provision unique random node keys in `AFRIORACLE_NODE_CREDENTIALS`.
 - **next_task**: BE-02 empty-submission fabrication (reject empty transcript/value/audio and preserve deterministic demo behavior).
+
+## 13-empty-submit — done
+
+- **done**: `/api/submit` returns 400 for an empty or whitespace-only transcript when no typed value is provided, before writing to the store. Removed the mock transcription's implicit 187 FCFA sentence; the demo continues to provide its observation transcript explicitly.
+- **decisions_made**: A nonzero typed value remains a valid input without a transcript; empty and zero-valued requests are not treated as observations.
+- **files_changed**: `agents/13-empty-submit.md`, `backend/internal/controller/submit.go`, `backend/internal/controller/auth_test.go`, `backend/internal/model/ai.go`, `backend/internal/model/ai_test.go`.
+- **open_questions**: None.
+- **next_task**: BE-04 chain publication must report `simulated` rather than `polygon-amoy` when no real transaction is sent.
