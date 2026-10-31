@@ -4,14 +4,34 @@
 // handleSubmit and handleWhatsapp.
 package controller
 
-import "afrioracle/internal/model"
+import (
+	"context"
+	"sync"
+	"time"
+
+	"afrioracle/internal/model"
+)
+
+type WhatsAppMediaDownloader interface {
+	Download(context.Context, string) ([]byte, string, error)
+}
+
+type WhatsAppAudioTranscriber interface {
+	Transcribe(context.Context, []byte, string) (string, error)
+}
 
 // Controllers bundles the handlers with their store.
 type Controllers struct {
-	Store model.Store
-	Nodes *NodeRegistry
+	Store               model.Store
+	Nodes               *NodeRegistry
+	WhatsAppAppSecret   string
+	WhatsAppVerifyToken string
+	WhatsAppMedia       WhatsAppMediaDownloader
+	WhatsAppTranscriber WhatsAppAudioTranscriber
+	whatsappMu          sync.Mutex
+	whatsappSeen        map[string]time.Time
 }
 
 func NewControllers(s model.Store) *Controllers {
-	return &Controllers{Store: s, Nodes: EmptyNodeRegistry()}
+	return &Controllers{Store: s, Nodes: EmptyNodeRegistry(), whatsappSeen: make(map[string]time.Time)}
 }
