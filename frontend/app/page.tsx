@@ -66,8 +66,8 @@ export default function Page() {
   return (
     <main style={{ fontFamily: "sans-serif", padding: 20, maxWidth: 760 }}>
       <h1>AfriOracle — prix du mil à Kaolack</h1>
-      <button onClick={runConsensus} aria-label="Lancer le consensus">Lancer le consensus</button>{" "}
-      <button onClick={ask} aria-label="Interroger l'assistant">Interroger l'assistant</button>
+      <button onClick={runConsensus}>Lancer le consensus</button>{" "}
+      <button onClick={ask}>Interroger l'assistant</button>
       {error && <p role="alert" style={{ color: "red" }}>{error}</p>}
 
       <h2>Soumissions</h2>
@@ -95,21 +95,25 @@ export default function Page() {
         </tbody>
       </table>
 
-      {consensus && (
-        <div aria-live="polite">
+      <div role="status" aria-live="polite">
+        {consensus && (
+          <>
           <h2>Consensus</h2>
           <p>Médiane : {consensus.median} FCFA/kg</p>
-          <p>Confiance : {consensus.confidence}%</p>
-          <p>Tx : {consensus.tx} ({consensus.chain})</p>
-          <p>aiReportHash : {consensus.aiReportHash}</p>
-        </div>
-      )}
+            <p>Confiance : {consensus.confidence}%</p>
+            <p>Tx : {consensus.tx} ({consensus.chain})</p>
+            <p>aiReportHash : {consensus.aiReportHash}</p>
+          </>
+        )}
+      </div>
 
-      {answer && (
-        <p aria-live="polite">
-          <strong>Assistant :</strong> {answer}
-        </p>
-      )}
+      <p role="status" aria-live="polite">
+        {answer && (
+          <>
+            <strong>Assistant :</strong> {answer}
+          </>
+        )}
+      </p>
     </main>
   );
 }
