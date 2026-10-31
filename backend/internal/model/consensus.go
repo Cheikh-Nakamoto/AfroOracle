@@ -35,8 +35,12 @@ func (s Submission) Weight() float64 {
 	return tierWeight[s.Tier] * mult
 }
 
-// Accepted is true for automatic nodes (ProofScore nil) or proof score >= 50.
+// Accepted requires a named, nonduplicate source and either an automatic-node
+// registration or a proof score of at least 50.
 func (s Submission) Accepted() bool {
+	if s.DuplicateSource || s.NodeID == "" {
+		return false
+	}
 	if s.ProofScore == nil {
 		return true
 	}
@@ -99,11 +103,17 @@ func runConsensus(subs []Submission, baseReward float64) ConsensusResult {
 	outcomes := make([]Outcome, 0, len(subs))
 	for _, s := range subs {
 		o := Outcome{
-			NodeID:    s.NodeID,
-			Weight:    s.Weight(),
-			Deviation: deviation(s.Value, median),
+			NodeID:       s.NodeID,
+			Weight:       s.Weight(),
+			Deviation:    deviation(s.Value, median),
+			SubmissionID: s.ID,
 		}
-		if !s.Accepted() {
+		if s.DuplicateSource {
+			o.Status = "excluded"
+			o.Note = "source déjà comptée dans ce lot"
+			o.Reward = 0
+			o.ScoreDelta = 0
+		} else if !s.Accepted() {
 			o.Status = "excluded"
 			o.Note = "preuve rejetée (score < 50)"
 			o.Reward = 0

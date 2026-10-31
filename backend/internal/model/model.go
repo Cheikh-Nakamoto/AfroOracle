@@ -9,22 +9,25 @@ package model
 const BaseReward = 5.0
 
 type Submission struct {
-	NodeID     string
-	Tier       int
-	RepScore   int
-	Value      float64
-	ProofScore *int // nil = automatic node (source hash) -> always accepted
-	Channel    string
+	NodeID          string
+	Tier            int
+	RepScore        int
+	Value           float64
+	ProofScore      *int // nil = automatic node (source hash) -> always accepted
+	Channel         string
+	ID              uint64 `json:"-"`
+	DuplicateSource bool   `json:"-"`
 }
 
 type Outcome struct {
-	NodeID     string
-	Status     string
-	Note       string
-	Reward     float64
-	ScoreDelta float64
-	Deviation  float64
-	Weight     float64
+	NodeID       string
+	Status       string
+	Note         string
+	Reward       float64
+	ScoreDelta   float64
+	Deviation    float64
+	Weight       float64
+	SubmissionID uint64 `json:"-"`
 }
 
 type ConsensusResult struct {
@@ -35,15 +38,18 @@ type ConsensusResult struct {
 }
 
 type StateSub struct {
-	NodeID     string  `json:"node_id"`
-	Tier       int     `json:"tier"`
-	RepScore   int     `json:"rep_score"`
-	Value      float64 `json:"value"`
-	ProofScore *int    `json:"proof_score"`
-	Channel    string  `json:"channel"`
-	Status     string  `json:"status"`
-	Reward     float64 `json:"reward"`
-	ScoreDelta float64 `json:"score_delta"`
+	ID              uint64  `json:"-"`
+	NodeID          string  `json:"node_id"`
+	Tier            int     `json:"tier"`
+	RepScore        int     `json:"rep_score"`
+	Value           float64 `json:"value"`
+	ProofScore      *int    `json:"proof_score"`
+	Channel         string  `json:"channel"`
+	Status          string  `json:"status"`
+	Reward          float64 `json:"reward"`
+	ScoreDelta      float64 `json:"score_delta"`
+	DuplicateSource bool    `json:"-"`
+	batchID         string
 }
 
 type Publication struct {

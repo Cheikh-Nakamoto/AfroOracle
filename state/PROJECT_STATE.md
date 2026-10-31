@@ -83,3 +83,11 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - **files_changed**: `agents/14-chain-label.md`, `backend/internal/model/chain.go`, `backend/internal/model/chain_test.go`.
 - **open_questions**: Real Amoy publication remains separate work and needs deployed contract configuration plus a receipt-backed transaction.
 - **next_task**: BE-07/BE-08 consensus integrity: count independent sources and prevent repeated consensus calls from publishing/rewarding again.
+
+## 15-consensus-integrity — done
+
+- **done**: Consensus quorum now requires three distinct, nonempty node IDs, and repeated accepted submissions from one node contribute only once per batch. The in-memory store atomically snapshots and consumes pending submissions, caches batch outcomes by `batch_id`, and returns cached results for retries. Unvalidated runs consume/cache their batch without publication or rewards; the last validated publication remains available to `/api/ask`.
+- **decisions_made**: Empty request bodies remain supported by generating a cryptographically random batch ID; clients can supply an ID to retry safely. Insufficient batches are not consumed. Duplicate accepted entries are retained in the audit outcomes as excluded with zero reward.
+- **files_changed**: `agents/15-consensus-integrity.md`, `backend/internal/model/{model,consensus,store}.go`, `backend/internal/controller/consensus.go`, `backend/internal/controller/consensus_batch_test.go`.
+- **open_questions**: Batch idempotency survives only for the lifetime of the in-memory store; durable persistence is a separate task.
+- **next_task**: BE-06 WhatsApp signature validation and fail-closed webhook handling.
