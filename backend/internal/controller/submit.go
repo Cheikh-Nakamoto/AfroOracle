@@ -53,8 +53,8 @@ func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
 	transcript := req.Transcript
-	if strings.TrimSpace(transcript) == "" {
-		transcript = model.Transcribe("")
+	if strings.TrimSpace(transcript) == "" && req.Value == 0 {
+		return http.StatusBadRequest, map[string]string{"error": "transcript or a typed value is required"}
 	}
 	var typed *float64
 	if req.Value != 0 {
