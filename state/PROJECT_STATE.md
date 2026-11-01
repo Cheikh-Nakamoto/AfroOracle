@@ -95,3 +95,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: backend/internal/model/{registry.go,registry_test.go}, backend/internal/controller/{controller.go,middleware.go,router.go,submit.go,consensus.go,router_test.go}, backend/main.go, scripts/demo.sh
 - open_questions: WhatsApp webhook still unauthenticated (node "" / tier 0); frontend/README do not yet mention tokens; no rate limiting or token hashing.
 - next_task: next ready-for-agent audit issue.
+
+## #47 Real Meta AI path (task 11)
+- done: with `META_API_KEY` set, `model` routes transcription (Muse Voice Transcribe), extraction (Muse Spark JSON mode), slate reading (Muse Spark vision) and object detection (SAM 3.1) through `meta.Client`; unset = unchanged deterministic mock. `POST /api/submit` accepts `audio_b64` (+`audio_format`), transcribed when no transcript/value; mock returns the 187 fixture. `GET /api/mode` returns `{"ai":"mock|real","chain":...}`. Offline tests in controller/realai_test.go (httptest fake Meta API) and meta_test.go. demo.sh DEMO OK (187, conf 100, D excluded).
+- decisions_made: real mode ignores client `photo_price` (slate price only from the model); model/API failure on slate => score 40 (fail safe, rejected); transcribe/extract failure => 502. `model.Extract` now returns `(ExtractResult, error)`. Added `meta.NewWithBaseURL`, `Message.Images` (vision parts), `model.UseMeta` (test seam).
+- files_changed: backend/internal/meta/{meta.go,meta_test.go}, backend/internal/model/ai.go, backend/internal/controller/{submit.go,router.go,root.go,realai_test.go}
+- open_questions: SAM `/responses` shape, chat vision `image_url` parts, ASR `{text}` response and `audio/<fmt>` content type are OPENAI-COMPAT guesses: confirm on first live call (flagged in meta.go). Frontend does not yet send audio.
+- next_task: live-call smoke test with a real key; frontend audio capture.

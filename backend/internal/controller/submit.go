@@ -23,6 +23,10 @@ type SubmitReq struct {
 	Channel    string   `json:"channel"`
 	Transcript string   `json:"transcript"`
 	PhotoB64   string   `json:"photo_b64"`
+	// AudioB64 is a base64 voice note (AudioFormat e.g. "wav", "mp3"); it is
+	// transcribed when no transcript is given.
+	AudioB64    string `json:"audio_b64"`
+	AudioFormat string `json:"audio_format"`
 }
 
 func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request, node model.Node) {
@@ -65,8 +69,13 @@ func validateSubmit(req SubmitReq) string {
 		return "value must be a positive number"
 	case req.PhotoPrice != nil && !validPrice(*req.PhotoPrice):
 		return "photo_price must be a positive number"
-	case req.Value == nil && strings.TrimSpace(req.Transcript) == "":
-		return "value or transcript required"
+	case req.Value == nil && strings.TrimSpace(req.Transcript) == "" && req.AudioB64 == "":
+		return "value, transcript or audio required"
+	}
+	if req.AudioB64 != "" {
+		if b, err := base64.StdEncoding.DecodeString(req.AudioB64); err != nil || len(b) == 0 {
+			return "audio_b64 is not valid base64"
+		}
 	}
 	if req.PhotoB64 != "" {
 		if _, err := base64.StdEncoding.DecodeString(req.PhotoB64); err != nil {
@@ -77,7 +86,19 @@ func validateSubmit(req SubmitReq) string {
 }
 
 func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
-	ext := model.Extract(req.Transcript, req.Value)
+	transcript := req.Transcript
+	if strings.TrimSpace(transcript) == "" && req.AudioB64 != "" && req.Value == nil {
+		audio, _ := base64.StdEncoding.DecodeString(req.AudioB64) // checked by validateSubmit
+		t, err := model.TranscribeAudio(audio, req.AudioFormat)
+		if err != nil {
+			return http.StatusBadGateway, map[string]string{"error": "transcription failed"}
+		}
+		transcript = t
+	}
+	ext, err := model.Extract(transcript, req.Value)
+	if err != nil {
+		return http.StatusBadGateway, map[string]string{"error": "extraction failed"}
+	}
 	if ext.NeedsConfirmation {
 		return http.StatusOK, map[string]string{"status": "clarify", "question": ext.Question}
 	}

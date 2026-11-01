@@ -56,6 +56,12 @@ func New(apiKey string) *Client {
 	return &Client{baseURL: DefaultBaseURL, apiKey: apiKey, http: http.DefaultClient}
 }
 
+// NewWithBaseURL is New with an overridden API root (offline tests point it
+// at an httptest server).
+func NewWithBaseURL(apiKey, baseURL string) *Client {
+	return &Client{baseURL: baseURL, apiKey: apiKey, http: http.DefaultClient}
+}
+
 // postJSON POSTs body as JSON to baseURL+path and returns the raw response
 // body, erroring on non-2xx status.
 func (c *Client) postJSON(ctx context.Context, path string, body any) ([]byte, error) {
@@ -95,6 +101,24 @@ func truncate(b []byte, n int) []byte {
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+	// Images attaches JPEG/PNG bytes (vision). OPENAI-COMPAT: sent as
+	// content parts [{type:text},{type:image_url,image_url:{url:<data URL>}}].
+	Images [][]byte `json:"-"`
+}
+
+// wire renders the message in its request shape.
+func (m Message) wire() any {
+	if len(m.Images) == 0 {
+		return m
+	}
+	parts := []any{map[string]any{"type": "text", "text": m.Content}}
+	for _, img := range m.Images {
+		parts = append(parts, map[string]any{
+			"type":      "image_url",
+			"image_url": map[string]string{"url": "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(img)},
+		})
+	}
+	return map[string]any{"role": m.Role, "content": parts}
 }
 
 // ChatRequest is a chat/structured-extraction call. An empty Model selects
@@ -122,7 +146,11 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error
 	if model == "" {
 		model = ModelChat
 	}
-	body := map[string]any{"model": model, "messages": req.Messages}
+	msgs := make([]any, len(req.Messages))
+	for i, m := range req.Messages {
+		msgs[i] = m.wire()
+	}
+	body := map[string]any{"model": model, "messages": msgs}
 	if req.MaxTokens > 0 {
 		body["max_tokens"] = req.MaxTokens
 	}
