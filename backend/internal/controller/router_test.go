@@ -185,3 +185,81 @@ func TestSubmitTranscriptOnlyStillWorks(t *testing.T) {
 		t.Fatalf("got %d %v", code, out)
 	}
 }
+
+func seedQuorum(t *testing.T, base string) {
+	submit(t, base, "A", 1, 92, 187, 187, "QQ==")
+	submit(t, base, "B", 2, 70, 185, 185, "Qg==")
+	submit(t, base, "C", 2, 70, 188, 188, "Qw==")
+}
+
+func publications(t *testing.T, base string) int {
+	_, st := get(t, base+"/api/state")
+	return len(st["publications"].([]any))
+}
+
+func TestQuorumNeedsDistinctNodes(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	submit(t, ts.URL, "A", 1, 92, 187, 187, "QQ==")
+	submit(t, ts.URL, "A", 1, 92, 186, 186, "Qg==")
+	submit(t, ts.URL, "A", 1, 92, 188, 188, "Qw==")
+	code, out := post(t, ts.URL+"/api/consensus", "")
+	if code != http.StatusUnprocessableEntity || out["error"] == nil {
+		t.Fatalf("want 422, got %d %v", code, out)
+	}
+	if n := publications(t, ts.URL); n != 0 {
+		t.Fatalf("publications = %d, want 0", n)
+	}
+}
+
+func TestSecondConsensusConsumesBatch(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	seedQuorum(t, ts.URL)
+	if code, out := post(t, ts.URL+"/api/consensus", ""); code != http.StatusOK {
+		t.Fatalf("first: %d %v", code, out)
+	}
+	code, _ := post(t, ts.URL+"/api/consensus", "")
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("second consensus status %d, want 422", code)
+	}
+	if n := publications(t, ts.URL); n != 1 {
+		t.Fatalf("publications = %d, want 1", n)
+	}
+	// a fresh batch can run again
+	submit(t, ts.URL, "A", 1, 92, 190, 190, "RA==")
+	submit(t, ts.URL, "B", 2, 70, 191, 191, "RQ==")
+	submit(t, ts.URL, "C", 2, 70, 192, 192, "Rg==")
+	if code, out := post(t, ts.URL+"/api/consensus", ""); code != http.StatusOK {
+		t.Fatalf("new batch: %d %v", code, out)
+	}
+	if n := publications(t, ts.URL); n != 2 {
+		t.Fatalf("publications = %d, want 2", n)
+	}
+}
+
+func TestConcurrentConsensusPublishesOnce(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	seedQuorum(t, ts.URL)
+	const n = 8
+	codes := make(chan int, n)
+	for i := 0; i < n; i++ {
+		go func() {
+			code, _ := post(t, ts.URL+"/api/consensus", "")
+			codes <- code
+		}()
+	}
+	ok := 0
+	for i := 0; i < n; i++ {
+		if <-codes == http.StatusOK {
+			ok++
+		}
+	}
+	if ok != 1 {
+		t.Fatalf("%d consensus runs succeeded, want 1", ok)
+	}
+	if p := publications(t, ts.URL); p != 1 {
+		t.Fatalf("publications = %d, want 1", p)
+	}
+}

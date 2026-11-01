@@ -46,6 +46,8 @@ type StateSub struct {
 	Status     string  `json:"status"`
 	Reward     float64 `json:"reward"`
 	ScoreDelta float64 `json:"score_delta"`
+	Seq        int     `json:"-"` // position in the store, set by PendingBatch
+	Consumed   bool    `json:"-"` // already part of a published batch
 }
 
 type Publication struct {

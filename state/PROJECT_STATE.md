@@ -74,3 +74,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: backend/internal/controller/submit.go, router_test.go, backend/internal/model/ai.go
 - open_questions: WhatsApp webhook still stores node_id "" / tier 0 submissions (not in #43 scope).
 - next_task: next ready-for-agent audit issue. demo.sh: DEMO OK (187, conf 100, D excluded).
+
+## #44 Consensus counts distinct sources, runs once per batch (BE-07, BE-12)
+- done: quorum = 3 distinct accepted NodeIDs (else 422). A consensus run snapshots pending submissions, publishes, and consumes exactly that batch; a second call with no new batch gets 422 (one publication, rewards once). Runs are serialised by `Controllers.consensusMu`. Tests in router_test.go (distinct nodes, repeat call, 8 concurrent calls, -race).
+- decisions_made: Store `AddPublication` replaced by `PendingBatch()` + `CommitBatch(pub, outcomes, batch)`; StateSub gains non-wire `Seq`/`Consumed`; outcomes applied only to batch rows by Seq. Mutex is held during ChainPublish (simple, correct; fine for demo). demo.sh unchanged.
+- files_changed: backend/internal/model/{model.go,store.go}, backend/internal/controller/{controller.go,consensus.go,router_test.go}
+- open_questions: duplicate NodeIDs inside a valid batch still each enter the median (only quorum counts distinct). Stale server on :8000 breaks demo.sh; use PORT/BASE override.
+- next_task: next ready-for-agent audit issue. demo.sh DEMO OK (187, conf 100, D excluded).

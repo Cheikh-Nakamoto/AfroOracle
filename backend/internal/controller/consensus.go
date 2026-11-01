@@ -9,7 +9,10 @@ import (
 )
 
 func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
-	stored := c.Store.Submissions()
+	c.consensusMu.Lock()
+	defer c.consensusMu.Unlock()
+
+	stored := c.Store.PendingBatch()
 	subs := make([]model.Submission, 0, len(stored))
 	for _, s := range stored {
 		subs = append(subs, model.Submission{
@@ -22,15 +25,16 @@ func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	accepted := 0
+	// Quorum = three distinct nodes, not three entries.
+	sources := map[string]bool{}
 	for _, s := range subs {
 		if s.Accepted() && s.Weight() > 0 {
-			accepted++
+			sources[s.NodeID] = true
 		}
 	}
-	if accepted < 3 {
+	if len(sources) < 3 {
 		view.WriteJSON(w, http.StatusUnprocessableEntity, map[string]string{
-			"error": "collecte rule: minimum 3 independent submissions required",
+			"error": "collecte rule: minimum 3 independent nodes required",
 		})
 		return
 	}
@@ -50,7 +54,7 @@ func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
 		Timestamp:    time.Now().Unix(),
 	}
 
-	c.Store.AddPublication(pub, result.Outcomes)
+	c.Store.CommitBatch(pub, result.Outcomes, stored)
 
 	view.WriteJSON(w, http.StatusOK, map[string]any{
 		"median":       result.Median,

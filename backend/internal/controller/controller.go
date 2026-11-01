@@ -4,11 +4,19 @@
 // handleSubmit and handleWhatsapp.
 package controller
 
-import "afrioracle/internal/model"
+import (
+	"sync"
+
+	"afrioracle/internal/model"
+)
 
 // Controllers bundles the handlers with their store.
 type Controllers struct {
 	Store model.Store
+
+	// consensusMu serialises consensus runs so snapshot, publish and commit
+	// are atomic: concurrent calls cannot double-publish or double-reward.
+	consensusMu sync.Mutex
 }
 
 func NewControllers(s model.Store) *Controllers {
