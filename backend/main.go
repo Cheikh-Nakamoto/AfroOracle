@@ -13,7 +13,16 @@ import (
 )
 
 func main() {
-	store := model.NewInMemoryStore()
+	var store model.Store = model.NewInMemoryStore()
+	storeKind := "memory"
+	if url := os.Getenv("DATABASE_URL"); url != "" {
+		pg, err := model.NewPGStore(url)
+		if err != nil {
+			log.Fatalf("postgres store: %v", err)
+		}
+		defer pg.Close()
+		store, storeKind = pg, "postgres"
+	}
 	reg, err := model.LoadRegistry()
 	if err != nil {
 		log.Fatalf("node registry: %v", err)
@@ -34,7 +43,7 @@ func main() {
 	}
 
 	ai, chain := model.Mode()
-	fmt.Printf("AfriOracle server on :%s (ai=%s, chain=%s)\n", port, ai, chain)
+	fmt.Printf("AfriOracle server on :%s (ai=%s, chain=%s, store=%s)\n", port, ai, chain, storeKind)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("server failed: %v", err)
 	}

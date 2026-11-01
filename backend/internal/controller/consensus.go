@@ -81,7 +81,11 @@ func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request, _ 
 		Timestamp:    time.Now().Unix(),
 	}
 
-	c.Store.CommitBatch(pub, result.Outcomes, stored)
+	if err := c.Store.CommitBatch(pub, result.Outcomes, stored); err != nil {
+		log.Printf("store: commit batch: %v", err)
+		view.WriteError(w, http.StatusInternalServerError, "storage unavailable")
+		return
+	}
 
 	view.WriteJSON(w, http.StatusOK, map[string]any{
 		"median":       result.Median,

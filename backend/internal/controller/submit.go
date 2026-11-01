@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log"
 	"math"
 	"net/http"
 	"strings"
@@ -114,7 +115,11 @@ func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
 		proofScorePtr = nil // automatic node (source hash) -> always accepted
 	} else {
 		photoBytes, _ := base64.StdEncoding.DecodeString(req.PhotoB64) // checked by validateSubmit
-		pr := c.Store.ScorePhoto(req.PhotoPrice, value, photoBytes)
+		pr, err := c.Store.ScorePhoto(req.PhotoPrice, value, photoBytes)
+		if err != nil {
+			log.Printf("store: score photo: %v", err)
+			return http.StatusInternalServerError, map[string]any{"error": "storage unavailable"}
+		}
 		proofScorePtr = &pr.Score
 		proof = pr
 	}
@@ -128,7 +133,7 @@ func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
 		Channel:    req.Channel,
 	}
 
-	c.Store.AddSubmission(model.StateSub{
+	if err := c.Store.AddSubmission(model.StateSub{
 		NodeID:     sub.NodeID,
 		Tier:       sub.Tier,
 		RepScore:   sub.RepScore,
@@ -136,7 +141,10 @@ func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
 		ProofScore: sub.ProofScore,
 		Channel:    sub.Channel,
 		Status:     "pending",
-	})
+	}); err != nil {
+		log.Printf("store: add submission: %v", err)
+		return http.StatusInternalServerError, map[string]any{"error": "storage unavailable"}
+	}
 
 	return http.StatusCreated, map[string]any{
 		"status":     "accepted",

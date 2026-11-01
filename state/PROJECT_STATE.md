@@ -109,3 +109,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: backend/go.mod, go.sum, internal/model/{chain.go,chain_test.go,model.go,AgriculturalData.abi.json,testdata/*.bin}, internal/controller/consensus.go
 - open_questions: never run against live Amoy (no creds); testdata .bin compiled with solc 0.8.20 via solcjs, regenerate if contracts change.
 - next_task: deploy to Amoy and smoke test.
+
+## #49 Postgres store behind DATABASE_URL (BE-05)
+- done: `model.PGStore` (pgx/v5 stdlib) selected in main.go when `DATABASE_URL` is set; unset = in-memory as before. Tables submissions, publications, last_outcomes, photo_fingerprints created idempotently on startup under an advisory lock. Verified against a real postgres:16 container (since removed): contract tests, restart persistence (`/api/state` byte-identical after restart), duplicate photo caught after restart, demo.sh DEMO OK (187, conf 100, D excluded) on Postgres and in-memory.
+- decisions_made: Store write methods (`AddSubmission`, `ScorePhoto`, `CommitBatch`) now return errors; controllers answer 500 `storage unavailable`. Fingerprint claimed by `INSERT .. ON CONFLICT DO NOTHING`. `CommitBatch` is one tx (publication + outcomes + consume); a row already consumed aborts it. Publications ordered by timestamp (in-memory now too). Reads log errors and return empty. PG tests gated on `TEST_DATABASE_URL`.
+- files_changed: backend/go.mod, go.sum, main.go, internal/model/{pgstore.go,store.go,store_test.go}, internal/controller/{submit.go,consensus.go}
+- open_questions: read methods swallow DB errors (log only); no versioned migrations beyond IF NOT EXISTS; docker-compose has no postgres service/DATABASE_URL passthrough.
+- next_task: add postgres service to docker-compose if wanted.
