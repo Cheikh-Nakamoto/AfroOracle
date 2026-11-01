@@ -5,8 +5,6 @@ package model
 // …). Submission/Outcome/ProofResult intentionally keep Go field names on the
 // wire — frozen by scripts/demo.sh selectors.
 
-import "os"
-
 // BaseReward is the consensus base reward (Couche 4).
 const BaseReward = 5.0
 
@@ -73,7 +71,7 @@ func Mode() (ai, chain string) {
 	if mock {
 		ai = "mock"
 	}
-	if os.Getenv("POLYGON_RPC") == "" || os.Getenv("PRIVATE_KEY") == "" {
+	if !chainConfigured() {
 		chain = "simulated"
 	}
 	return

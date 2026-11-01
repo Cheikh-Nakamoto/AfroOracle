@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -62,7 +63,12 @@ func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request, _ 
 		return
 	}
 	report := map[string]any{"median": result.Median, "confidence": result.Confidence, "outcomes": len(result.Outcomes)}
-	tx, chain := model.ChainPublish(result, report)
+	tx, chain, err := model.ChainPublish(result, report)
+	if err != nil {
+		log.Printf("chain publish failed: %v", err)
+		view.WriteError(w, http.StatusBadGateway, "chain publish failed")
+		return
+	}
 
 	pub := model.Publication{
 		Median:       result.Median,

@@ -102,3 +102,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: backend/internal/meta/{meta.go,meta_test.go}, backend/internal/model/ai.go, backend/internal/controller/{submit.go,router.go,root.go,realai_test.go}
 - open_questions: SAM `/responses` shape, chat vision `image_url` parts, ASR `{text}` response and `audio/<fmt>` content type are OPENAI-COMPAT guesses: confirm on first live call (flagged in meta.go). Frontend does not yet send audio.
 - next_task: live-call smoke test with a real key; frontend audio capture.
+
+## #48 Honest chain publishing via go-ethereum (BE-04)
+- done: `model.ChainPublish` now returns `(tx, chain, err)`. Real publish (go-ethereum v1.17.10, `bind/v2`) runs `AgriculturalData.publish` only when `POLYGON_RPC`, `PRIVATE_KEY` and `CONTRACT_ADDRESS` are all set; it waits for the receipt, requires status 1, and labels `polygon-amoy` only for chain id 80002 (other chains `evm-<id>`). Otherwise tx is the deterministic sha256 hash labelled `simulated` (demo hash unchanged). A failed/reverted publish returns 502 and commits nothing. Offline tests (model/chain_test.go) use `ethclient/simulated` with contracts compiled from contracts/*.sol (testdata/*.bin): real receipt, Published event, `ParametricInsurance.check` reads the price (payout 1300), revert is not labelled real, ABI drift check. demo.sh DEMO OK (187, conf 100, D excluded).
+- decisions_made: new env `CONTRACT_ADDRESS` (deployed AgriculturalData), optional `ORACLE_ZONE`/`ORACLE_PRODUIT` (default Kaolack/millet); date = UTC today. ABI copied to model/AgriculturalData.abi.json (go:embed cannot leave module), test guards drift. `Mode()` reports chain real only with all three vars. `model.UseChain` is the test seam.
+- files_changed: backend/go.mod, go.sum, internal/model/{chain.go,chain_test.go,model.go,AgriculturalData.abi.json,testdata/*.bin}, internal/controller/consensus.go
+- open_questions: never run against live Amoy (no creds); testdata .bin compiled with solc 0.8.20 via solcjs, regenerate if contracts change.
+- next_task: deploy to Amoy and smoke test.
