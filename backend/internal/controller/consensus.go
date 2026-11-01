@@ -9,11 +9,6 @@ import (
 )
 
 func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
-		return
-	}
-
 	stored := c.Store.Submissions()
 	subs := make([]model.Submission, 0, len(stored))
 	for _, s := range stored {

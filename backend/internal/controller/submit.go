@@ -23,13 +23,9 @@ type SubmitReq struct {
 }
 
 func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
-		return
-	}
 	var req SubmitReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "bad json", http.StatusBadRequest)
+		view.WriteError(w, http.StatusBadRequest, "bad json")
 		return
 	}
 	status, resp := c.processSubmit(req)

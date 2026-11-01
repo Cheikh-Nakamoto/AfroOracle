@@ -59,3 +59,11 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - **files_changed**: `backend/internal/meta/meta.go`, `backend/internal/meta/meta_test.go`
 - **open_questions**: none. Exact SAM/image field shapes adapted from docs; confirm on first live call.
 - **next_task**: [`agents/11-real-ai.md`](../agents/11-real-ai.md) — wire `model` AI funcs to `meta` + add audio upload to submit.
+
+## Issue #42 (backend HTTP test harness + hardening) — done
+
+- **done**: `controller.NewRouter(c, maxBody)` owns routing: per-route method guard (405 + `Allow`), body cap (413), JSON 404 for unknown paths, one error shape `{"error": ...}` (`view.WriteError`). `main.go` uses it with read/write/idle timeouts, exits non-zero if the port is busy, logs `ai=`/`chain=` mode (`model.Mode()`). `router_test.go` covers golden path over HTTP, 422, 413, 405/404, ask-without-data. `scripts/demo.sh` still DEMO OK (187, conf 100, D excluded, same tx).
+- **decisions_made**: default body cap 8 MiB (base64 photos); `/webhook/whatsapp` keeps no CORS; method checks moved out of handlers into the router.
+- **files_changed**: `backend/main.go`, `backend/internal/controller/{router.go,router_test.go,submit.go,consensus.go,whatsapp.go}`, `backend/internal/view/view.go`, `backend/internal/model/model.go`
+- **open_questions**: none.
+- **next_task**: GitHub issues #43, #44, #47, #48 (unblocked by #42).

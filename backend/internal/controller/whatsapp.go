@@ -14,7 +14,7 @@ func (c *Controllers) HandleWhatsapp(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(r.URL.Query().Get("hub.challenge")))
 			return
 		}
-		http.Error(w, "verification failed", http.StatusForbidden)
+		view.WriteError(w, http.StatusForbidden, "verification failed")
 		return
 	}
 	if r.Method == http.MethodPost {
@@ -48,5 +48,4 @@ func (c *Controllers) HandleWhatsapp(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	http.Error(w, "GET/POST only", http.StatusMethodNotAllowed)
 }

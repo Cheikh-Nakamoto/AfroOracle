@@ -5,6 +5,8 @@ package model
 // …). Submission/Outcome/ProofResult intentionally keep Go field names on the
 // wire — frozen by scripts/demo.sh selectors.
 
+import "os"
+
 // BaseReward is the consensus base reward (Couche 4).
 const BaseReward = 5.0
 
@@ -61,4 +63,16 @@ type RewardEntry struct {
 	NodeID     string  `json:"node_id"`
 	Reward     float64 `json:"reward"`
 	ScoreDelta float64 `json:"score_delta"`
+}
+
+// Mode reports which AI and chain paths are active, for operator logs.
+func Mode() (ai, chain string) {
+	ai, chain = "real", "real"
+	if mock {
+		ai = "mock"
+	}
+	if os.Getenv("POLYGON_RPC") == "" || os.Getenv("PRIVATE_KEY") == "" {
+		chain = "simulated"
+	}
+	return
 }
