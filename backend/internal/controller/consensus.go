@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -8,15 +9,22 @@ import (
 	"afrioracle/internal/view"
 )
 
-func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
-		return
-	}
+func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request, _ model.Node) {
+	c.consensusMu.Lock()
+	defer c.consensusMu.Unlock()
 
-	stored := c.Store.Submissions()
-	subs := make([]model.Submission, 0, len(stored))
-	for _, s := range stored {
+	stored := c.Store.PendingBatch()
+	// One node contributes one value: the latest submission in the batch.
+	// Earlier rows are still consumed with the batch (CommitBatch gets all).
+	latest := map[string]int{}
+	for i, s := range stored {
+		latest[s.NodeID] = i
+	}
+	subs := make([]model.Submission, 0, len(latest))
+	for i, s := range stored {
+		if latest[s.NodeID] != i {
+			continue
+		}
 		subs = append(subs, model.Submission{
 			NodeID:     s.NodeID,
 			Tier:       s.Tier,
@@ -27,22 +35,40 @@ func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	accepted := 0
+	// Quorum = three distinct nodes, not three entries.
+	sources := map[string]bool{}
 	for _, s := range subs {
 		if s.Accepted() && s.Weight() > 0 {
-			accepted++
+			sources[s.NodeID] = true
 		}
 	}
-	if accepted < 3 {
+	if len(sources) < 3 {
 		view.WriteJSON(w, http.StatusUnprocessableEntity, map[string]string{
-			"error": "collecte rule: minimum 3 independent submissions required",
+			"error": "collecte rule: minimum 3 independent nodes required",
 		})
 		return
 	}
 
 	result := model.RunConsensus(subs, model.BaseReward)
+	if !result.Validated {
+		// Never published, stored or quoted; the batch stays pending.
+		view.WriteJSON(w, http.StatusOK, map[string]any{
+			"median":     result.Median,
+			"confidence": result.Confidence,
+			"validated":  false,
+			"outcomes":   result.Outcomes,
+			"tx":         "",
+			"chain":      "",
+		})
+		return
+	}
 	report := map[string]any{"median": result.Median, "confidence": result.Confidence, "outcomes": len(result.Outcomes)}
-	tx, chain := model.ChainPublish(result, report)
+	tx, chain, err := model.ChainPublish(result, report)
+	if err != nil {
+		log.Printf("chain publish failed: %v", err)
+		view.WriteError(w, http.StatusBadGateway, "chain publish failed")
+		return
+	}
 
 	pub := model.Publication{
 		Median:       result.Median,
@@ -55,7 +81,11 @@ func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
 		Timestamp:    time.Now().Unix(),
 	}
 
-	c.Store.AddPublication(pub, result.Outcomes)
+	if err := c.Store.CommitBatch(pub, result.Outcomes, stored); err != nil {
+		log.Printf("store: commit batch: %v", err)
+		view.WriteError(w, http.StatusInternalServerError, "storage unavailable")
+		return
+	}
 
 	view.WriteJSON(w, http.StatusOK, map[string]any{
 		"median":       result.Median,

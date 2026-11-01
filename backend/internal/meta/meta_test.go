@@ -242,3 +242,26 @@ func TestGenerateImageRequestConstruction(t *testing.T) {
 		t.Errorf("image bytes = %v, want decoded png header", img)
 	}
 }
+
+func TestNewWithBaseURLAndChatImages(t *testing.T) {
+	var got capture
+	srv := serveCapture(&got, `{"choices":[{"message":{"content":"ok"}}]}`, "application/json", 200)
+	defer srv.Close()
+	c := NewWithBaseURL("k", srv.URL)
+	_, err := c.Chat(context.Background(), ChatRequest{Messages: []Message{{Role: "user", Content: "read", Images: [][]byte{[]byte("img")}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.path != "/chat/completions" {
+		t.Fatalf("path %q", got.path)
+	}
+	msgs := got.jsonBody["messages"].([]any)
+	parts := msgs[0].(map[string]any)["content"].([]any)
+	if len(parts) != 2 || parts[1].(map[string]any)["type"] != "image_url" {
+		t.Fatalf("content parts = %v", parts)
+	}
+	url := parts[1].(map[string]any)["image_url"].(map[string]any)["url"].(string)
+	if url != "data:image/jpeg;base64,"+base64.StdEncoding.EncodeToString([]byte("img")) {
+		t.Fatalf("url %q", url)
+	}
+}

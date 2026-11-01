@@ -14,3 +14,8 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
 }
+
+// WriteError renders the single error shape used by every endpoint.
+func WriteError(w http.ResponseWriter, status int, msg string) {
+	WriteJSON(w, status, map[string]string{"error": msg})
+}

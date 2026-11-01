@@ -44,6 +44,8 @@ type StateSub struct {
 	Status     string  `json:"status"`
 	Reward     float64 `json:"reward"`
 	ScoreDelta float64 `json:"score_delta"`
+	Seq        int     `json:"-"` // position in the store, set by PendingBatch
+	Consumed   bool    `json:"-"` // already part of a published batch
 }
 
 type Publication struct {
@@ -61,4 +63,16 @@ type RewardEntry struct {
 	NodeID     string  `json:"node_id"`
 	Reward     float64 `json:"reward"`
 	ScoreDelta float64 `json:"score_delta"`
+}
+
+// Mode reports which AI and chain paths are active, for operator logs.
+func Mode() (ai, chain string) {
+	ai, chain = "real", "real"
+	if mock {
+		ai = "mock"
+	}
+	if !chainConfigured() {
+		chain = "simulated"
+	}
+	return
 }

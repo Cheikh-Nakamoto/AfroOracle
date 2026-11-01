@@ -20,6 +20,7 @@ func (c *Controllers) HandleState(w http.ResponseWriter, r *http.Request) {
 		"submissions":  submissions,
 		"publications": publications,
 		"rewards":      rewards,
+		"outcomes":     outcomes,
 		"fingerprints": fps,
 	})
 }

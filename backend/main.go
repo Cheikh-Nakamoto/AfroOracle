@@ -1,30 +1,53 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"afrioracle/internal/controller"
 	"afrioracle/internal/model"
 )
 
 func main() {
-	store := model.NewInMemoryStore()
-	c := controller.NewControllers(store)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/submit", controller.Cors(c.HandleSubmit))
-	mux.HandleFunc("/api/consensus", controller.Cors(c.HandleConsensus))
-	mux.HandleFunc("/api/state", controller.Cors(c.HandleState))
-	mux.HandleFunc("/api/ask", controller.Cors(c.HandleAsk))
-	mux.HandleFunc("/webhook/whatsapp", c.HandleWhatsapp)
-	mux.HandleFunc("/", c.HandleRoot)
+	var store model.Store = model.NewInMemoryStore()
+	storeKind := "memory"
+	if url := os.Getenv("DATABASE_URL"); url != "" {
+		pg, err := model.NewPGStore(url)
+		if err != nil {
+			log.Fatalf("postgres store: %v", err)
+		}
+		defer pg.Close()
+		store, storeKind = pg, "postgres"
+	}
+	reg, err := model.LoadRegistry()
+	if err != nil {
+		log.Fatalf("node registry: %v", err)
+	}
+	c := controller.NewControllers(store, reg)
+	if c.WA, err = controller.NewWAClientFromEnv(); err != nil {
+		log.Fatalf("whatsapp client: %v", err)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8000"
 	}
-	fmt.Println("AfriOracle server on :" + port)
-	http.ListenAndServe(":"+port, mux)
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           controller.NewRouter(c, controller.DefaultMaxBody),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	ai, chain := model.Mode()
+	fmt.Printf("AfriOracle server on :%s (ai=%s, chain=%s, store=%s)\n", port, ai, chain, storeKind)
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatalf("server failed: %v", err)
+	}
 }

@@ -3,6 +3,8 @@ package controller
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log"
+	"math"
 	"net/http"
 	"strings"
 
@@ -10,42 +12,94 @@ import (
 	"afrioracle/internal/view"
 )
 
-// SubmitReq is the controller's request DTO (not model).
+// SubmitReq is the controller's request DTO (not model). Tier and RepScore
+// are accepted on the wire for compatibility but ignored: the registry
+// supplies them.
 type SubmitReq struct {
 	NodeID     string   `json:"node_id"`
 	Tier       int      `json:"tier"`
 	RepScore   int      `json:"rep_score"`
-	Value      float64  `json:"value"`
+	Value      *float64 `json:"value"`
 	PhotoPrice *float64 `json:"photo_price"`
 	Channel    string   `json:"channel"`
 	Transcript string   `json:"transcript"`
 	PhotoB64   string   `json:"photo_b64"`
+	// AudioB64 is a base64 voice note (AudioFormat e.g. "wav", "mp3"); it is
+	// transcribed when no transcript is given.
+	AudioB64    string `json:"audio_b64"`
+	AudioFormat string `json:"audio_format"`
 }
 
-func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
-		return
-	}
+func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request, node model.Node) {
 	var req SubmitReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "bad json", http.StatusBadRequest)
+		view.WriteError(w, http.StatusBadRequest, "bad json")
 		return
 	}
+	if msg := validateSubmit(req); msg != "" {
+		view.WriteError(w, http.StatusBadRequest, msg)
+		return
+	}
+	if strings.TrimSpace(req.NodeID) != node.ID {
+		view.WriteError(w, http.StatusForbidden, "node_id does not match credentials")
+		return
+	}
+	// Tier and reputation come from the registry; payload values are ignored.
+	req.Tier, req.RepScore = node.Tier, node.Rep
 	status, resp := c.processSubmit(req)
 	view.WriteJSON(w, status, resp)
 }
 
+const (
+	maxNodeID = 64
+	maxPrice  = 1e9
+)
+
+func validPrice(p float64) bool {
+	return p > 0 && p <= maxPrice && !math.IsNaN(p)
+}
+
+// validateSubmit returns a human-readable reason, or "" when req is well formed.
+// Absent value (nil) is distinct from an explicit 0, which is invalid.
+func validateSubmit(req SubmitReq) string {
+	id := strings.TrimSpace(req.NodeID)
+	switch {
+	case id == "" || len(id) > maxNodeID:
+		return "node_id must be 1-64 characters"
+	case req.Value != nil && !validPrice(*req.Value):
+		return "value must be a positive number"
+	case req.PhotoPrice != nil && !validPrice(*req.PhotoPrice):
+		return "photo_price must be a positive number"
+	case req.Value == nil && strings.TrimSpace(req.Transcript) == "" && req.AudioB64 == "":
+		return "value, transcript or audio required"
+	}
+	if req.AudioB64 != "" {
+		if b, err := base64.StdEncoding.DecodeString(req.AudioB64); err != nil || len(b) == 0 {
+			return "audio_b64 is not valid base64"
+		}
+	}
+	if req.PhotoB64 != "" {
+		if _, err := base64.StdEncoding.DecodeString(req.PhotoB64); err != nil {
+			return "photo_b64 is not valid base64"
+		}
+	}
+	return ""
+}
+
 func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
 	transcript := req.Transcript
-	if strings.TrimSpace(transcript) == "" {
-		transcript = model.Transcribe("")
+	if strings.TrimSpace(transcript) == "" && req.AudioB64 != "" && req.Value == nil {
+		audio, _ := base64.StdEncoding.DecodeString(req.AudioB64) // checked by validateSubmit
+		t, err := model.TranscribeAudio(audio, req.AudioFormat)
+		if err != nil {
+			return http.StatusBadGateway, map[string]string{"error": "transcription failed"}
+		}
+		transcript = t
 	}
-	var typed *float64
-	if req.Value != 0 {
-		typed = &req.Value
+	ext, err := model.Extract(transcript, req.Value)
+	if err != nil {
+		return http.StatusBadGateway, map[string]string{"error": "extraction failed"}
 	}
-	ext := model.Extract(transcript, typed)
 	if ext.NeedsConfirmation {
 		return http.StatusOK, map[string]string{"status": "clarify", "question": ext.Question}
 	}
@@ -60,8 +114,12 @@ func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
 	if req.Tier == 3 {
 		proofScorePtr = nil // automatic node (source hash) -> always accepted
 	} else {
-		photoBytes, _ := base64.StdEncoding.DecodeString(req.PhotoB64)
-		pr := c.Store.ScorePhoto(req.PhotoPrice, value, photoBytes)
+		photoBytes, _ := base64.StdEncoding.DecodeString(req.PhotoB64) // checked by validateSubmit
+		pr, err := c.Store.ScorePhoto(req.PhotoPrice, value, photoBytes)
+		if err != nil {
+			log.Printf("store: score photo: %v", err)
+			return http.StatusInternalServerError, map[string]any{"error": "storage unavailable"}
+		}
 		proofScorePtr = &pr.Score
 		proof = pr
 	}
@@ -75,7 +133,7 @@ func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
 		Channel:    req.Channel,
 	}
 
-	c.Store.AddSubmission(model.StateSub{
+	if err := c.Store.AddSubmission(model.StateSub{
 		NodeID:     sub.NodeID,
 		Tier:       sub.Tier,
 		RepScore:   sub.RepScore,
@@ -83,7 +141,10 @@ func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
 		ProofScore: sub.ProofScore,
 		Channel:    sub.Channel,
 		Status:     "pending",
-	})
+	}); err != nil {
+		log.Printf("store: add submission: %v", err)
+		return http.StatusInternalServerError, map[string]any{"error": "storage unavailable"}
+	}
 
 	return http.StatusCreated, map[string]any{
 		"status":     "accepted",

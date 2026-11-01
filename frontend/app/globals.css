@@ -1,0 +1,49 @@
+:root {
+  --fg: #1a1a1a;
+  --muted: #4a4a4a;
+  --ok: #1b5e20;
+  --ok-bg: #e8f5e9;
+  --bad: #b71c1c;
+  --bad-bg: #fdecea;
+  --warn: #7a4e00;
+  --border: #767676;
+  --focus: #0b57d0;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); line-height: 1.45; }
+.skip-link { position: absolute; left: -999px; top: 0; background: #fff; padding: 8px; z-index: 10; }
+.skip-link:focus { left: 8px; }
+.page { padding: 16px; max-width: 960px; margin: 0 auto; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.2rem; margin-top: 1.5rem; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ask { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.ask label { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1 1 280px; }
+.ask input { flex: 1 1 220px; min-width: 0; }
+button, input { font: inherit; padding: 8px 12px; min-height: 44px; }
+button.small { min-height: 32px; padding: 2px 8px; }
+button:focus-visible, input:focus-visible, a:focus-visible, .table-wrap:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.banner { border: 1px solid var(--bad); background: var(--bad-bg); color: var(--bad); padding: 10px; margin-top: 12px; }
+.notice { color: var(--warn); }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+caption { text-align: left; font-weight: bold; padding: 4px 0; }
+th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #f0f0f0; }
+tr.fraud { color: var(--bad); }
+tr.excluded { background: var(--bad-bg); }
+.publication { border: 2px solid var(--ok); background: var(--ok-bg); padding: 10px; }
+.publication.unpublished { border-color: var(--bad); background: var(--bad-bg); }
+.publication .title { font-weight: bold; margin: 0; color: var(--ok); }
+.publication.unpublished .title { color: var(--bad); }
+.assistant { border-left: 4px solid var(--focus); padding-left: 10px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+code { word-break: break-all; }
+@media (max-width: 600px) {
+  .page { padding: 10px; }
+  .toolbar button, .ask button { flex: 1 1 100%; }
+  th, td { padding: 4px 6px; font-size: 0.9rem; }
+}
