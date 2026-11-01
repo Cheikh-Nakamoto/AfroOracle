@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { latestPublication, publicationView, Publication } from "../lib/publication";
 import { ApiConfig, ApiError, apiFetch, latestOnly, resolveApiUrl, singleFlight } from "../lib/api";
 
 type Sub = {
@@ -13,8 +14,8 @@ type Sub = {
 
 type State = {
   submissions: Sub[];
-  publications: { median: number; confidence: number; tx: string; aiReportHash: string; chain: string }[];
-  rewards: { node_id: string; reward: number }[];
+  publications: Publication[];
+  rewards: { node_id: string; reward: number; score_delta?: number }[];
 };
 
 type Consensus = {
@@ -31,7 +32,6 @@ export default function Page() {
   const [cfg, setCfg] = useState<ApiConfig | null>(null);
   const [state, setState] = useState<State | null>(null);
   const [loading, setLoading] = useState(true);
-  const [consensus, setConsensus] = useState<Consensus | null>(null);
   const [answer, setAnswer] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -85,10 +85,7 @@ export default function Page() {
         if (r.status === 422) {
           setNotice(r.data?.error ?? "Pas assez de sources");
         } else if (!r.data.validated) {
-          setConsensus(null);
           setNotice(`Consensus non validé (confiance ${r.data.confidence}%) : rien n'a été publié.`);
-        } else {
-          setConsensus(r.data);
         }
         await refresh(c);
       } catch (e) {
@@ -165,15 +162,41 @@ export default function Page() {
         </tbody>
       </table>
 
-      {consensus && (
-        <div>
-          <h2>Consensus</h2>
-          <p>Médiane : {consensus.median} FCFA/kg</p>
-          <p>Confiance : {consensus.confidence}%</p>
-          <p>Tx : {consensus.tx} ({consensus.chain})</p>
-          <p>aiReportHash : {consensus.aiReportHash}</p>
-        </div>
-      )}
+      <h2>Dernière publication</h2>
+      {(() => {
+        const p = latestPublication(state?.publications);
+        if (!p) return <p>{loading && !state ? "Chargement…" : "Aucune publication pour l'instant."}</p>;
+        const v = publicationView(p);
+        return (
+          <div data-testid="publication" data-published={v.published} style={{ border: `2px solid ${v.color}`, background: v.background, padding: 10 }}>
+            <p style={{ color: v.color, fontWeight: "bold", margin: 0 }}>{v.title}</p>
+            <p>Médiane : {p.median} FCFA/kg</p>
+            <p>Confiance : {p.confidence}%</p>
+            <p>Tx : {v.tx} ({v.chain})</p>
+            <p>Date : {v.when}</p>
+            {p.aiReportHash && <p>aiReportHash : {p.aiReportHash}</p>}
+          </div>
+        );
+      })()}
+
+      <h2>Récompenses</h2>
+      <table border={1} cellPadding={6} style={{ borderCollapse: "collapse" }}>
+        <thead>
+          <tr><th>Nœud</th><th>Récompense</th><th>Δ score</th></tr>
+        </thead>
+        <tbody>
+          {(state?.rewards ?? []).length === 0 && (
+            <tr><td colSpan={3}>{loading && !state ? "Chargement…" : "Aucune récompense pour l'instant."}</td></tr>
+          )}
+          {(state?.rewards ?? []).map((r) => (
+            <tr key={r.node_id}>
+              <td>{r.node_id}</td>
+              <td>{r.reward}</td>
+              <td>{r.score_delta ?? 0}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       {answer && (
         <p>

@@ -137,3 +137,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: frontend/{app/page.tsx,app/config/route.ts,lib/api.ts,lib/api.test.ts,package.json,package-lock.json,Dockerfile}, docker-compose.yml
 - open_questions: no ESLint configured (tsc is the lint); no browser/E2E check of the banner; `next start` outside docker needs DASHBOARD_TOKEN else consensus shows 401.
 - next_task: next ready-for-agent audit issue.
+
+## #53 Dashboard shows persisted publications and validation state (UI-02, UI-04)
+- done: page renders the latest publication and rewards from `/api/state` (not from the consensus response), so F5 keeps median/tx. `validated !== true` renders red "Non publié" with tx/chain "—"; validated renders green "Publié" with tx, chain, date. Rewards table (node, reward, score delta). Pure view-model in `frontend/lib/publication.ts` with 4 vitest tests.
+- decisions_made: no backend change (`validated`, `timestamp`, `rewards` already on /api/state). Since #45 only validated runs are stored, so the unvalidated style only appears for legacy/other rows; a fresh unvalidated run still shows the existing notice.
+- files_changed: frontend/app/page.tsx, frontend/lib/publication.ts, frontend/lib/publication.test.ts
+- open_questions: not browser-verified (tsc, vitest, next build only).
+- next_task: next ready-for-agent audit issue.
