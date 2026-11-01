@@ -36,18 +36,24 @@ func main() {
 	if port == "" {
 		port = "8000"
 	}
-	srv := &http.Server{
-		Addr:              ":" + port,
-		Handler:           controller.NewRouter(c, controller.DefaultMaxBody),
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
+	srv := newHTTPServer(":"+port, controller.NewRouter(c, controller.DefaultMaxBody))
 
 	ai, chain := model.Mode()
 	fmt.Printf("AfriOracle server on :%s (ai=%s, chain=%s, store=%s)\n", port, ai, chain, storeKind)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("server failed: %v", err)
+	}
+}
+
+// newHTTPServer centralizes the production server settings so timeout and
+// startup behavior can be covered without launching the whole application.
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 }
