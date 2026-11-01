@@ -1,16 +1,21 @@
 package controller
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 
+	"afrioracle/internal/model"
 	"afrioracle/internal/view"
 )
 
@@ -29,6 +34,12 @@ func validSignature(secret, header string, body []byte) bool {
 	return hmac.Equal(got, m.Sum(nil))
 }
 
+type waMedia struct {
+	ID       string `json:"id"`
+	MimeType string `json:"mime_type"`
+	Caption  string `json:"caption"`
+}
+
 type waPayload struct {
 	Entry []struct {
 		Changes []struct {
@@ -40,6 +51,8 @@ type waPayload struct {
 					Text struct {
 						Body string `json:"body"`
 					} `json:"text"`
+					Audio waMedia `json:"audio"`
+					Image waMedia `json:"image"`
 				} `json:"messages"`
 			} `json:"value"`
 		} `json:"changes"`
@@ -100,7 +113,7 @@ func (c *Controllers) HandleWhatsapp(w http.ResponseWriter, r *http.Request) {
 	for _, e := range msg.Entry {
 		for _, ch := range e.Changes {
 			for _, m := range ch.Value.Messages {
-				if m.Type != "text" || strings.TrimSpace(m.Text.Body) == "" || m.ID == "" {
+				if m.ID == "" || !waSupported(m.Type, m.Text.Body, m.Audio, m.Image) {
 					continue
 				}
 				node, ok := c.Registry.ByPhone(m.From)
@@ -113,17 +126,146 @@ func (c *Controllers) HandleWhatsapp(w http.ResponseWriter, r *http.Request) {
 					last = map[string]string{"status": "duplicate"}
 					continue
 				}
-				status, last = c.processSubmit(SubmitReq{
-					NodeID: node.ID, Tier: node.Tier, RepScore: node.Rep,
-					Transcript: m.Text.Body, Channel: "whatsapp",
-				})
+				req := SubmitReq{NodeID: node.ID, Tier: node.Tier, RepScore: node.Rep, Channel: "whatsapp"}
+				if m.Type == "text" {
+					req.Transcript = m.Text.Body
+				} else {
+					held, st, err := c.loadMedia(r.Context(), m.From, m.Type, m.Audio, m.Image, &req)
+					if err != nil {
+						log.Printf("whatsapp: wamid %s: %v", m.ID, err)
+						c.releaseWamid(m.ID) // let Meta's retry succeed
+						view.WriteError(w, st, "media unavailable: "+err.Error())
+						return
+					}
+					if held {
+						status, last = http.StatusOK, map[string]string{"status": "photo_held"}
+						last = c.reply(r.Context(), m.From, status, last, "Photo recue. Envoyez maintenant le prix en message vocal.")
+						continue
+					}
+				}
+				status, last = c.processSubmit(req)
 				if status >= 500 {
 					c.releaseWamid(m.ID) // let Meta's retry succeed
 					view.WriteJSON(w, status, last)
 					return
 				}
+				last = c.reply(r.Context(), m.From, status, last, "")
 			}
 		}
 	}
 	view.WriteJSON(w, status, last)
+}
+
+func waSupported(typ, text string, audio, image waMedia) bool {
+	switch typ {
+	case "text":
+		return strings.TrimSpace(text) != ""
+	case "audio":
+		return audio.ID != ""
+	case "image":
+		return image.ID != ""
+	}
+	return false
+}
+
+// loadMedia downloads an audio or image message through c.WA and fills req.
+// A voice note becomes AudioB64 (plus the sender's held photo, if any). A photo
+// with a price caption becomes a direct submission; a bare photo is held for
+// the sender's next voice/text message and held=true is returned.
+func (c *Controllers) loadMedia(ctx context.Context, from, typ string, audio, image waMedia, req *SubmitReq) (held bool, status int, err error) {
+	if c.WA == nil {
+		return false, http.StatusServiceUnavailable, errors.New("WHATSAPP_TOKEN not configured")
+	}
+	media := audio
+	if typ == "image" {
+		media = image
+	}
+	data, mime, err := c.WA.Media(ctx, media.ID)
+	if err != nil {
+		return false, http.StatusBadGateway, err
+	}
+	if mime == "" {
+		mime = media.MimeType
+	}
+	if typ == "audio" {
+		req.AudioB64 = base64.StdEncoding.EncodeToString(data)
+		req.AudioFormat = audioFormat(mime)
+		req.PhotoB64 = c.takePhoto(from)
+		return false, 0, nil
+	}
+	b64 := base64.StdEncoding.EncodeToString(data)
+	if strings.TrimSpace(image.Caption) == "" {
+		c.holdPhoto(from, b64)
+		return true, 0, nil
+	}
+	req.Transcript, req.PhotoB64 = image.Caption, b64
+	return false, 0, nil
+}
+
+// audioFormat maps "audio/ogg; codecs=opus" to "ogg".
+func audioFormat(mime string) string {
+	mime, _, _ = strings.Cut(mime, ";")
+	_, sub, _ := strings.Cut(strings.TrimSpace(mime), "/")
+	return sub
+}
+
+func (c *Controllers) holdPhoto(from, b64 string) {
+	c.waMu.Lock()
+	defer c.waMu.Unlock()
+	if c.waPhotos == nil {
+		c.waPhotos = map[string]string{}
+	}
+	c.waPhotos[from] = b64
+}
+
+func (c *Controllers) takePhoto(from string) string {
+	c.waMu.Lock()
+	defer c.waMu.Unlock()
+	p := c.waPhotos[from]
+	delete(c.waPhotos, from)
+	return p
+}
+
+// reply tells the sender the outcome (or the clarifying question). A failed
+// reply never undoes the stored submission; it is logged and surfaced in the
+// webhook response as reply_error.
+func (c *Controllers) reply(ctx context.Context, to string, status int, resp any, override string) any {
+	if c.WA == nil {
+		return resp
+	}
+	text := override
+	if text == "" {
+		text = replyText(resp)
+	}
+	if text == "" {
+		return resp
+	}
+	if err := c.WA.SendText(ctx, to, text); err != nil {
+		log.Printf("whatsapp: reply to %s: %v", to, err)
+		switch m := resp.(type) {
+		case map[string]any:
+			m["reply_error"] = err.Error()
+		case map[string]string:
+			m["reply_error"] = err.Error()
+		}
+	}
+	return resp
+}
+
+func replyText(resp any) string {
+	switch m := resp.(type) {
+	case map[string]string:
+		if m["status"] == "clarify" {
+			return m["question"]
+		}
+	case map[string]any:
+		if sub, ok := m["submission"].(model.Submission); ok {
+			msg := fmt.Sprintf("Prix enregistre: %g FCFA/kilo.", sub.Value)
+			if sub.ProofScore != nil {
+				msg += fmt.Sprintf(" Preuve: %d/100.", *sub.ProofScore)
+			}
+			return msg
+		}
+	}
+	return ""
 }

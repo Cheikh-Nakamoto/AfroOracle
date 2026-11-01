@@ -28,6 +28,9 @@ func main() {
 		log.Fatalf("node registry: %v", err)
 	}
 	c := controller.NewControllers(store, reg)
+	if c.WA, err = controller.NewWAClientFromEnv(); err != nil {
+		log.Fatalf("whatsapp client: %v", err)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {

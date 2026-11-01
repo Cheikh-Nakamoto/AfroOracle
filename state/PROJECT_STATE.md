@@ -123,3 +123,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: backend/internal/controller/{whatsapp.go,whatsapp_test.go,controller.go}, backend/internal/model/registry.go, .env.example
 - open_questions: persistent wamid dedupe (store); `internal/model` has an intermittent -race failure seen once (passes on rerun), not investigated; waSeen unbounded.
 - next_task: persist wamid in Store; investigate model race flake.
+
+## #51 WhatsApp voice and photo end to end (BE-06)
+- done: webhook handles `audio` and `image` messages. Media is fetched through the `controller.WAClient` seam (id -> URL -> bytes with `WHATSAPP_TOKEN`, size capped) and fed to `processSubmit` (audio_b64 / photo_b64). The sender gets a WhatsApp reply: accepted price + proof score, or the clarify question. Offline tests with an httptest fake Cloud API in controller/whatsapp_media_test.go. demo.sh DEMO OK (187, conf 100, D excluded).
+- decisions_made: a bare photo is held per sender (in memory, latest only) and attached to their next voice/text; a photo with a caption is submitted directly (caption = transcript). Download failure => 502 and wamid released (Meta retries); no client (`WHATSAPP_TOKEN` unset) => 503 for media. Reply failure never undoes the stored submission: logged and returned as `reply_error`. New env: `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_API_BASE`, `WHATSAPP_MAX_MEDIA_BYTES` (default 8 MiB, checked on declared file_size and while streaming). Reply text is French, unlocalised.
+- files_changed: backend/internal/controller/{whatsapp.go,whatsapp_client.go,whatsapp_media_test.go,controller.go}, backend/main.go, .env.example
+- open_questions: never run against the live Cloud API (graph version v21.0 and payload shapes from docs); held photos and wamid dedupe are lost on restart and unbounded; reply is sent synchronously inside the webhook request.
+- next_task: live smoke test with a real WhatsApp number; persist wamid/held photos.
