@@ -88,3 +88,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: backend/internal/controller/{consensus.go,router_test.go}
 - open_questions: a never-validating pending batch keeps blocking fresh runs from excluding old scattered rows (no expiry/reset); WhatsApp node_id "" still unvalidated.
 - next_task: next ready-for-agent audit issue. demo.sh DEMO OK (187, conf 100, D excluded).
+
+## #46 Authenticated nodes, server-side tier/reputation (BE-01)
+- done: `POST /api/submit` and `/api/consensus` require `Authorization: Bearer <token>` of a registered node (401 otherwise; `WWW-Authenticate`). Submit also needs payload `node_id` == credential's node (403). Tier/rep always come from the registry; payload `tier`/`rep_score` are accepted on the wire but ignored (no longer validated), so a forged tier 3 cannot skip proof scoring. Tests in router_test.go + model/registry_test.go; demo.sh DEMO OK (187, conf 100, D excluded).
+- decisions_made: `model.Registry` (token -> Node{ID,Tier,Rep}), loaded by `model.LoadRegistry()` from env `AFRIORACLE_NODES="id:token:tier:rep,..."`; if unset and mock mode, demo nodes A,B,C,E,F,G,H,D (tier 2) and FAO (tier 3) are seeded with token `dev-token-<ID>`; real mode with no env = empty registry (all 401). Any registered node may run consensus (no separate admin role). `NewControllers(store, registry)`; CORS allows `Authorization`. Tokens are plaintext in env/memory (demo scope).
+- files_changed: backend/internal/model/{registry.go,registry_test.go}, backend/internal/controller/{controller.go,middleware.go,router.go,submit.go,consensus.go,router_test.go}, backend/main.go, scripts/demo.sh
+- open_questions: WhatsApp webhook still unauthenticated (node "" / tier 0); frontend/README do not yet mention tokens; no rate limiting or token hashing.
+- next_task: next ready-for-agent audit issue.

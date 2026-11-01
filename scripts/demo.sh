@@ -6,6 +6,9 @@
 # the assistant. Expected: median 187, confidence 100, D excluded (score 12),
 # assistant answers with the published value.
 #
+# Auth: nodes send "Authorization: Bearer dev-token-<ID>" (seeded in mock mode
+# by the server; tier/rep come from the registry, not the payload).
+#
 # Usage: ./scripts/demo.sh  (run from the repo root)
 # Env:   BASE (default http://localhost:8000). If no server answers at BASE,
 #        this script starts one (`cd backend && go run .`) and stops it on exit.
@@ -62,7 +65,8 @@ submit() {
       transcript: ("Le prix du mil à Kaolack est de \($value) francs CFA le kilo."),
       channel: $channel}' \
     | curl -s -o /tmp/afrioracle-submit.json -w '%{http_code}' \
-      -X POST "$BASE/api/submit" -H 'Content-Type: application/json' -d @-)
+      -X POST "$BASE/api/submit" -H 'Content-Type: application/json' \
+      -H "Authorization: Bearer dev-token-$node" -d @-)
   if [ "$code" != "201" ]; then
     echo "FAIL: submit $node -> HTTP $code: $(cat /tmp/afrioracle-submit.json)"
     exit 1
@@ -82,7 +86,8 @@ submit H 2 68 184 184 "H-slate-184" "app"
 code=$(jq -n '{node_id: "FAO", tier: 3, rep_score: 0, value: 190,
   transcript: "FAO source hash: millet Kaolack 190.", channel: "api"}' \
   | curl -s -o /tmp/afrioracle-submit.json -w '%{http_code}' \
-    -X POST "$BASE/api/submit" -H 'Content-Type: application/json' -d @-)
+    -X POST "$BASE/api/submit" -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer dev-token-FAO" -d @-)
 [ "$code" = "201" ] || { echo "FAIL: submit FAO -> HTTP $code"; exit 1; }
 echo "  accepted FAO (tier 3 automatic, value 190)"
 
@@ -90,7 +95,8 @@ echo "==> submitting scripted fraudster D (reuses A's photo)..."
 submit D 2 61 240 240 "A-slate-187" "app"
 
 echo "==> running consensus..."
-code=$(curl -s -o /tmp/afrioracle-consensus.json -w '%{http_code}' -X POST "$BASE/api/consensus")
+code=$(curl -s -o /tmp/afrioracle-consensus.json -w '%{http_code}' -X POST "$BASE/api/consensus" \
+  -H "Authorization: Bearer dev-token-A")
 [ "$code" = "200" ] || { echo "FAIL: consensus -> HTTP $code: $(cat /tmp/afrioracle-consensus.json)"; exit 1; }
 
 MEDIAN=$(jq -r .median /tmp/afrioracle-consensus.json)

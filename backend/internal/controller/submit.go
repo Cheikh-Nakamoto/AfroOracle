@@ -11,7 +11,9 @@ import (
 	"afrioracle/internal/view"
 )
 
-// SubmitReq is the controller's request DTO (not model).
+// SubmitReq is the controller's request DTO (not model). Tier and RepScore
+// are accepted on the wire for compatibility but ignored: the registry
+// supplies them.
 type SubmitReq struct {
 	NodeID     string   `json:"node_id"`
 	Tier       int      `json:"tier"`
@@ -23,7 +25,7 @@ type SubmitReq struct {
 	PhotoB64   string   `json:"photo_b64"`
 }
 
-func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request) {
+func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request, node model.Node) {
 	var req SubmitReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		view.WriteError(w, http.StatusBadRequest, "bad json")
@@ -33,6 +35,12 @@ func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request) {
 		view.WriteError(w, http.StatusBadRequest, msg)
 		return
 	}
+	if strings.TrimSpace(req.NodeID) != node.ID {
+		view.WriteError(w, http.StatusForbidden, "node_id does not match credentials")
+		return
+	}
+	// Tier and reputation come from the registry; payload values are ignored.
+	req.Tier, req.RepScore = node.Tier, node.Rep
 	status, resp := c.processSubmit(req)
 	view.WriteJSON(w, status, resp)
 }
@@ -53,10 +61,6 @@ func validateSubmit(req SubmitReq) string {
 	switch {
 	case id == "" || len(id) > maxNodeID:
 		return "node_id must be 1-64 characters"
-	case req.Tier < 1 || req.Tier > 3:
-		return "tier must be 1, 2 or 3"
-	case req.RepScore < 0 || req.RepScore > 100:
-		return "rep_score must be between 0 and 100"
 	case req.Value != nil && !validPrice(*req.Value):
 		return "value must be a positive number"
 	case req.PhotoPrice != nil && !validPrice(*req.PhotoPrice):

@@ -14,7 +14,11 @@ import (
 
 func main() {
 	store := model.NewInMemoryStore()
-	c := controller.NewControllers(store)
+	reg, err := model.LoadRegistry()
+	if err != nil {
+		log.Fatalf("node registry: %v", err)
+	}
+	c := controller.NewControllers(store, reg)
 
 	port := os.Getenv("PORT")
 	if port == "" {

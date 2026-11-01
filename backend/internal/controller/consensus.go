@@ -8,7 +8,7 @@ import (
 	"afrioracle/internal/view"
 )
 
-func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
+func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request, _ model.Node) {
 	c.consensusMu.Lock()
 	defer c.consensusMu.Unlock()
 

@@ -19,8 +19,8 @@ func NewRouter(c *Controllers, maxBody int64) http.Handler {
 	api := func(path string, h http.HandlerFunc, methods ...string) {
 		mux.HandleFunc(path, Cors(allow(methods, limitBody(maxBody, h))))
 	}
-	api("/api/submit", c.HandleSubmit, http.MethodPost)
-	api("/api/consensus", c.HandleConsensus, http.MethodPost)
+	api("/api/submit", c.authed(c.HandleSubmit), http.MethodPost)
+	api("/api/consensus", c.authed(c.HandleConsensus), http.MethodPost)
 	api("/api/state", c.HandleState, http.MethodGet)
 	api("/api/ask", c.HandleAsk, http.MethodGet)
 	mux.HandleFunc("/webhook/whatsapp", allow([]string{http.MethodGet, http.MethodPost}, limitBody(maxBody, c.HandleWhatsapp)))

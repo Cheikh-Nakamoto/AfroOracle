@@ -5,18 +5,37 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"afrioracle/internal/model"
 )
 
+var registries sync.Map // server URL -> *model.Registry
+
 func newTestServer(maxBody int64) *httptest.Server {
-	return httptest.NewServer(NewRouter(NewControllers(model.NewInMemoryStore()), maxBody))
+	reg := model.NewRegistry()
+	reg.Register("OP", "tok-OP", 2, 50) // operator credential for consensus runs
+	ts := httptest.NewServer(NewRouter(NewControllers(model.NewInMemoryStore(), reg), maxBody))
+	registries.Store(ts.URL, reg)
+	return ts
 }
 
-func post(t *testing.T, url string, body string) (int, map[string]any) {
+// enroll registers a node (token "tok-<id>") on the server owning base.
+func enroll(base, node string, tier, rep int) string {
+	reg, _ := registries.Load(base)
+	reg.(*model.Registry).Register(node, "tok-"+node, tier, rep)
+	return "tok-" + node
+}
+
+func postTok(t *testing.T, url, token, body string) (int, map[string]any) {
 	t.Helper()
-	resp, err := http.Post(url, "application/json", strings.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,6 +43,13 @@ func post(t *testing.T, url string, body string) (int, map[string]any) {
 	var out map[string]any
 	json.NewDecoder(resp.Body).Decode(&out)
 	return resp.StatusCode, out
+}
+
+// post sends the operator credential, so consensus calls and node-agnostic
+// checks work; submit uses the node's own token.
+func post(t *testing.T, url string, body string) (int, map[string]any) {
+	t.Helper()
+	return postTok(t, url, "tok-OP", body)
 }
 
 func get(t *testing.T, url string) (int, map[string]any) {
@@ -44,7 +70,8 @@ func submit(t *testing.T, base, node string, tier int, rep int, value float64, p
 		"node_id": node, "tier": tier, "rep_score": rep, "value": value,
 		"photo_price": photoPrice, "photo_b64": photo, "channel": "web",
 	})
-	code, out := post(t, base+"/api/submit", string(body))
+	tok := enroll(base, node, tier, rep)
+	code, out := postTok(t, base+"/api/submit", tok, string(body))
 	if code != http.StatusCreated {
 		t.Fatalf("submit %s: status %d body %v", node, code, out)
 	}
@@ -151,10 +178,6 @@ func TestSubmitRejectsInvalidInput(t *testing.T) {
 		{"explicit zero value", `{"node_id":"A","tier":1,"rep_score":50,"value":0}`},
 		{"negative value", `{"node_id":"A","tier":1,"rep_score":50,"value":-3}`},
 		{"bad base64", `{"node_id":"A","tier":1,"rep_score":50,"value":187,"photo_b64":"%%%not-base64"}`},
-		{"unknown tier", `{"node_id":"A","tier":9,"rep_score":50,"value":187}`},
-		{"zero tier", `{"node_id":"A","tier":0,"rep_score":50,"value":187}`},
-		{"rep too high", `{"node_id":"A","tier":1,"rep_score":101,"value":187}`},
-		{"rep negative", `{"node_id":"A","tier":1,"rep_score":-1,"value":187}`},
 		{"photo price negative", `{"node_id":"A","tier":1,"rep_score":50,"value":187,"photo_price":-5}`},
 		{"photo price zero", `{"node_id":"A","tier":1,"rep_score":50,"value":187,"photo_price":0}`},
 		{"missing node id", `{"tier":1,"rep_score":50,"value":187}`},
@@ -165,7 +188,8 @@ func TestSubmitRejectsInvalidInput(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(1 << 20)
 			defer ts.Close()
-			code, out := post(t, ts.URL+"/api/submit", tc.body)
+			tok := enroll(ts.URL, "A", 1, 50)
+			code, out := postTok(t, ts.URL+"/api/submit", tok, tc.body)
 			if code < 400 || code > 499 || out["error"] == nil {
 				t.Fatalf("want 4xx with error, got %d %v", code, out)
 			}
@@ -180,7 +204,8 @@ func TestSubmitRejectsInvalidInput(t *testing.T) {
 func TestSubmitTranscriptOnlyStillWorks(t *testing.T) {
 	ts := newTestServer(1 << 20)
 	defer ts.Close()
-	code, out := post(t, ts.URL+"/api/submit", `{"node_id":"A","tier":3,"rep_score":50,"transcript":"mil 190 le kilo"}`)
+	tok := enroll(ts.URL, "A", 3, 50)
+	code, out := postTok(t, ts.URL+"/api/submit", tok, `{"node_id":"A","tier":3,"rep_score":50,"transcript":"mil 190 le kilo"}`)
 	if code != http.StatusCreated {
 		t.Fatalf("got %d %v", code, out)
 	}
@@ -326,5 +351,89 @@ func TestDuplicateNodeContributesLatestValueOnly(t *testing.T) {
 	}
 	if n := len(out["outcomes"].([]any)); n != 3 {
 		t.Errorf("outcomes = %d, want 3 (one per node)", n)
+	}
+}
+
+func TestSubmitWithoutValidCredentialsIs401(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	enroll(ts.URL, "A", 2, 70)
+	body := `{"node_id":"A","tier":3,"rep_score":100,"value":900}`
+	for name, tok := range map[string]string{"missing": "", "unknown": "tok-nope", "forged tier-3 claim": "tok-nope"} {
+		code, out := postTok(t, ts.URL+"/api/submit", tok, body)
+		if code != http.StatusUnauthorized || out["error"] == nil {
+			t.Errorf("%s: got %d %v, want 401", name, code, out)
+		}
+	}
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/submit", strings.NewReader(body))
+	req.Header.Set("Authorization", "Basic dGVzdDp0ZXN0")
+	if resp, _ := http.DefaultClient.Do(req); resp.StatusCode != 401 {
+		t.Errorf("non-bearer scheme = %d, want 401", resp.StatusCode)
+	}
+	_, st := get(t, ts.URL+"/api/state")
+	if subs, _ := st["submissions"].([]any); len(subs) != 0 {
+		t.Fatalf("unauthenticated submit reached store: %v", subs)
+	}
+}
+
+func TestConsensusRequiresCredentials(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	seedQuorum(t, ts.URL)
+	for _, tok := range []string{"", "tok-nope"} {
+		if code, _ := postTok(t, ts.URL+"/api/consensus", tok, ""); code != http.StatusUnauthorized {
+			t.Errorf("token %q: got %d, want 401", tok, code)
+		}
+	}
+	if publications(t, ts.URL) != 0 {
+		t.Fatal("unauthenticated consensus published")
+	}
+	if code, _ := post(t, ts.URL+"/api/consensus", ""); code != http.StatusOK {
+		t.Fatalf("authenticated consensus = %d", code)
+	}
+}
+
+func TestNodeCannotSubmitAsAnotherNode(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	tokA := enroll(ts.URL, "A", 2, 70)
+	enroll(ts.URL, "FAO", 3, 0)
+	code, out := postTok(t, ts.URL+"/api/submit", tokA, `{"node_id":"FAO","tier":3,"value":187}`)
+	if code != http.StatusForbidden || out["error"] == nil {
+		t.Fatalf("got %d %v, want 403", code, out)
+	}
+}
+
+func TestPayloadTierAndRepAreIgnored(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	tok := enroll(ts.URL, "A", 2, 40)
+	// Claims tier 3 (proof-exempt) and rep 100, but registry says tier 2/rep 40
+	// and there is no photo: proof is required, so it must be scored and rejected.
+	code, out := postTok(t, ts.URL+"/api/submit", tok, `{"node_id":"A","tier":3,"rep_score":100,"value":900}`)
+	if code != http.StatusCreated {
+		t.Fatalf("got %d %v", code, out)
+	}
+	sub := out["submission"].(map[string]any)
+	if sub["Tier"].(float64) != 2 || sub["RepScore"].(float64) != 40 {
+		t.Errorf("tier/rep taken from payload: %v", sub)
+	}
+	if sub["ProofScore"] == nil {
+		t.Error("forged tier 3 skipped proof scoring")
+	}
+}
+
+func TestForgedTierCannotMoveMedian(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	seedQuorum(t, ts.URL) // A=187 B=185 C=188
+	tok := enroll(ts.URL, "X", 2, 10)
+	code, _ := postTok(t, ts.URL+"/api/submit", tok, `{"node_id":"X","tier":3,"rep_score":100,"value":900,"channel":"api"}`)
+	if code != http.StatusCreated {
+		t.Fatal(code)
+	}
+	_, out := post(t, ts.URL+"/api/consensus", "")
+	if out["median"].(float64) != 187 {
+		t.Fatalf("median = %v, want 187", out["median"])
 	}
 }
