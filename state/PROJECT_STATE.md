@@ -144,3 +144,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: frontend/app/page.tsx, frontend/lib/publication.ts, frontend/lib/publication.test.ts
 - open_questions: not browser-verified (tsc, vitest, next build only).
 - next_task: next ready-for-agent audit issue.
+
+## #54 Audit trail and assistant question input (UI-08,12,13,14,15)
+- done: "Audit du consensus" table (node, text badge "✓ ACCEPTÉ"/"✗ EXCLU", reason, deviation, score delta, reward, channel, weight); excluded D shows reason + Δ -2; automatic nodes (proof_score null) get an explanatory reason. Real question input (form, Enter submits) sent encoded to `/api/ask?q=`. tx and aiReportHash are truncated with a Copier button. Pure helpers in frontend/lib/audit.ts (+ audit.test.ts, 16 vitest total).
+- decisions_made: minimal backend change, new keys only: `/api/state` adds `outcomes` (Go field names NodeID/Status/..., as in the consensus response; channel joined from submissions); `/api/ask` now requires `q` (400 if empty/>500) and echoes `question`. Answer logic still published-data only (no estimating).
+- files_changed: frontend/{app/page.tsx,lib/audit.ts,lib/audit.test.ts}, backend/internal/controller/{ask.go,state.go,router_test.go}
+- open_questions: not browser-verified (tsc, vitest, next build, live curl of /api/state outcomes + /api/ask only); ask answer does not yet vary with the question content.
+- next_task: next ready-for-agent audit issue.

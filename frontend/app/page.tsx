@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { latestPublication, publicationView, Publication } from "../lib/publication";
+import { askPath, outcomeRows, truncateHash, Outcome } from "../lib/audit";
 import { ApiConfig, ApiError, apiFetch, latestOnly, resolveApiUrl, singleFlight } from "../lib/api";
 
 type Sub = {
   node_id: string;
   value: number;
   proof_score: number | null;
+  channel?: string;
   status: string;
   reward: number;
 };
@@ -15,6 +17,7 @@ type Sub = {
 type State = {
   submissions: Sub[];
   publications: Publication[];
+  outcomes?: Outcome[];
   rewards: { node_id: string; reward: number; score_delta?: number }[];
 };
 
@@ -33,6 +36,8 @@ export default function Page() {
   const [state, setState] = useState<State | null>(null);
   const [loading, setLoading] = useState(true);
   const [answer, setAnswer] = useState("");
+  const [question, setQuestion] = useState("prix du mil à Kaolack ?");
+  const [copied, setCopied] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState<"" | "consensus" | "ask">("");
@@ -97,11 +102,12 @@ export default function Page() {
   ).current;
 
   async function ask() {
-    if (!cfg || busy) return;
+    const path = askPath(question);
+    if (!cfg || busy || !path) return;
     const signal = askGuard.current.next();
     setBusy("ask");
     try {
-      const r = await apiFetch<{ answer: string }>(cfg.apiUrl, `/api/ask?q=${encodeURIComponent("prix du mil à Kaolack ?")}`, { signal });
+      const r = await apiFetch<{ answer: string }>(cfg.apiUrl, path, { signal });
       setAnswer(r.data.answer);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
@@ -109,6 +115,25 @@ export default function Page() {
     }
     setBusy("");
   }
+
+  async function copy(h: string) {
+    try {
+      await navigator.clipboard.writeText(h);
+      setCopied(h);
+    } catch {
+      setError("Copie impossible");
+    }
+  }
+  const hashView = (h?: string) =>
+    h ? (
+      <>
+        <code title={h}>{truncateHash(h)}</code>{" "}
+        <button onClick={() => copy(h)}>{copied === h ? "Copié" : "Copier"}</button>
+      </>
+    ) : (
+      "—"
+    );
+  const rows = outcomeRows(state?.outcomes, state?.submissions);
 
   const fraud = (s: Sub) => s.proof_score !== null && s.proof_score < 50;
 
@@ -118,12 +143,18 @@ export default function Page() {
       <button disabled={!cfg || busy !== ""} onClick={() => cfg && runConsensus(cfg, setBusy)}>
         {busy === "consensus" ? "Consensus en cours…" : "Lancer le consensus"}
       </button>{" "}
-      <button disabled={!cfg || busy !== ""} onClick={ask}>
-        {busy === "ask" ? "Question en cours…" : "Interroger l'assistant"}
-      </button>{" "}
       <button disabled={!cfg || loading} onClick={() => cfg && refresh(cfg)}>
         {loading ? "Chargement…" : "Rafraîchir"}
       </button>
+      <form onSubmit={(e) => { e.preventDefault(); ask(); }} style={{ marginTop: 12 }}>
+        <label>
+          Question à l'assistant :{" "}
+          <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} size={40} />
+        </label>{" "}
+        <button type="submit" disabled={!cfg || busy !== "" || !question.trim()}>
+          {busy === "ask" ? "Question en cours…" : "Interroger l'assistant"}
+        </button>
+      </form>
       {error && (
         <div role="alert" style={{ background: "#fdecea", border: "1px solid #c62828", color: "#b71c1c", padding: 10, marginTop: 12 }}>
           Erreur : {error}{" "}
@@ -155,7 +186,7 @@ export default function Page() {
               <td>{s.node_id}</td>
               <td>{s.value}</td>
               <td>{s.proof_score === null ? "auto" : s.proof_score}</td>
-              <td>{s.status}</td>
+              <td>{fraud(s) ? "✗ " : ""}{s.status}</td>
               <td>{s.reward}</td>
             </tr>
           ))}
@@ -172,12 +203,36 @@ export default function Page() {
             <p style={{ color: v.color, fontWeight: "bold", margin: 0 }}>{v.title}</p>
             <p>Médiane : {p.median} FCFA/kg</p>
             <p>Confiance : {p.confidence}%</p>
-            <p>Tx : {v.tx} ({v.chain})</p>
+            <p>Tx : {p.tx && v.published ? hashView(p.tx) : v.tx} ({v.chain})</p>
             <p>Date : {v.when}</p>
-            {p.aiReportHash && <p>aiReportHash : {p.aiReportHash}</p>}
+            {p.aiReportHash && <p>aiReportHash : {hashView(p.aiReportHash)}</p>}
           </div>
         );
       })()}
+
+      <h2>Audit du consensus</h2>
+      <table border={1} cellPadding={6} style={{ borderCollapse: "collapse" }}>
+        <thead>
+          <tr><th>Nœud</th><th>Statut</th><th>Motif</th><th>Écart</th><th>Δ score</th><th>Récompense</th><th>Canal</th><th>Poids</th></tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr><td colSpan={8}>{loading && !state ? "Chargement…" : "Aucun consensus validé pour l'instant."}</td></tr>
+          )}
+          {rows.map((r) => (
+            <tr key={r.node} data-testid={`outcome-${r.node}`} style={{ background: r.excluded ? "#fdecea" : undefined }}>
+              <td>{r.node}</td>
+              <td><strong>{r.icon} {r.badge}</strong></td>
+              <td>{r.reason}</td>
+              <td>{r.deviation}</td>
+              <td>{r.delta}</td>
+              <td>{r.reward}</td>
+              <td>{r.channel}</td>
+              <td>{r.weight}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <h2>Récompenses</h2>
       <table border={1} cellPadding={6} style={{ borderCollapse: "collapse" }}>

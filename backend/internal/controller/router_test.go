@@ -126,12 +126,21 @@ func TestGoldenOverHTTP(t *testing.T) {
 	if code != 200 || !strings.Contains(ask["answer"].(string), "187") {
 		t.Fatalf("ask: %d %v", code, ask)
 	}
+	if ask["question"] != "prix" {
+		t.Fatalf("question not echoed: %v", ask)
+	}
+	if st["outcomes"] == nil {
+		t.Fatalf("state lacks outcomes: %v", st)
+	}
+	if code, _ := get(t, ts.URL+"/api/ask"); code != http.StatusBadRequest {
+		t.Fatalf("empty question want 400, got %d", code)
+	}
 }
 
 func TestAskWithoutDataNeverEstimates(t *testing.T) {
 	ts := newTestServer(1 << 20)
 	defer ts.Close()
-	_, ask := get(t, ts.URL+"/api/ask")
+	_, ask := get(t, ts.URL+"/api/ask?q=prix")
 	if !strings.Contains(ask["answer"].(string), "Aucune donnée") {
 		t.Fatalf("ask = %v", ask)
 	}
