@@ -81,3 +81,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: backend/internal/model/{model.go,store.go}, backend/internal/controller/{controller.go,consensus.go,router_test.go}
 - open_questions: duplicate NodeIDs inside a valid batch still each enter the median (only quorum counts distinct). Stale server on :8000 breaks demo.sh; use PORT/BASE override.
 - next_task: next ready-for-agent audit issue. demo.sh DEMO OK (187, conf 100, D excluded).
+
+## #45 Publish and quote only validated results (BE-08)
+- done: confidence < 66 run returns 200 `validated:false` (empty tx/chain), no ChainPublish, no publication, so `/api/ask` keeps quoting the last validated value or says none. Also closes #44 gap: one value per node (latest in batch) enters the median/outcomes. Tests in router_test.go (low confidence with/without prior publication, duplicate node).
+- decisions_made: unvalidated batch is NOT consumed (stays pending, no rewards/penalties applied) so more data can arrive; superseded duplicate rows are consumed with the batch on a validated run.
+- files_changed: backend/internal/controller/{consensus.go,router_test.go}
+- open_questions: a never-validating pending batch keeps blocking fresh runs from excluding old scattered rows (no expiry/reset); WhatsApp node_id "" still unvalidated.
+- next_task: next ready-for-agent audit issue. demo.sh DEMO OK (187, conf 100, D excluded).

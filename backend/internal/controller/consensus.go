@@ -13,8 +13,17 @@ func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
 	defer c.consensusMu.Unlock()
 
 	stored := c.Store.PendingBatch()
-	subs := make([]model.Submission, 0, len(stored))
-	for _, s := range stored {
+	// One node contributes one value: the latest submission in the batch.
+	// Earlier rows are still consumed with the batch (CommitBatch gets all).
+	latest := map[string]int{}
+	for i, s := range stored {
+		latest[s.NodeID] = i
+	}
+	subs := make([]model.Submission, 0, len(latest))
+	for i, s := range stored {
+		if latest[s.NodeID] != i {
+			continue
+		}
 		subs = append(subs, model.Submission{
 			NodeID:     s.NodeID,
 			Tier:       s.Tier,
@@ -40,6 +49,18 @@ func (c *Controllers) HandleConsensus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := model.RunConsensus(subs, model.BaseReward)
+	if !result.Validated {
+		// Never published, stored or quoted; the batch stays pending.
+		view.WriteJSON(w, http.StatusOK, map[string]any{
+			"median":     result.Median,
+			"confidence": result.Confidence,
+			"validated":  false,
+			"outcomes":   result.Outcomes,
+			"tx":         "",
+			"chain":      "",
+		})
+		return
+	}
 	report := map[string]any{"median": result.Median, "confidence": result.Confidence, "outcomes": len(result.Outcomes)}
 	tx, chain := model.ChainPublish(result, report)
 

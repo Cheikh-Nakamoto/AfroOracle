@@ -263,3 +263,68 @@ func TestConcurrentConsensusPublishesOnce(t *testing.T) {
 		t.Fatalf("publications = %d, want 1", p)
 	}
 }
+
+func TestLowConfidenceIsNotPublishedNorQuoted(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	seedQuorum(t, ts.URL)
+	if code, out := post(t, ts.URL+"/api/consensus", ""); code != http.StatusOK || out["validated"] != true {
+		t.Fatalf("first run: %d %v", code, out)
+	}
+	// scattered batch -> low confidence
+	for i, v := range []float64{100, 150, 200, 250, 300} {
+		submit(t, ts.URL, string(rune('P'+i)), 2, 70, v, v, string(rune('a'+i))+"A==")
+	}
+	code, out := post(t, ts.URL+"/api/consensus", "")
+	if code != http.StatusOK || out["validated"] != false {
+		t.Fatalf("want 200 validated:false, got %d %v", code, out)
+	}
+	if tx, _ := out["tx"].(string); tx != "" {
+		t.Errorf("unvalidated run must not publish on chain, tx=%q", tx)
+	}
+	if n := publications(t, ts.URL); n != 1 {
+		t.Fatalf("publications = %d, want 1", n)
+	}
+	_, ask := get(t, ts.URL+"/api/ask?q=prix")
+	if !strings.Contains(ask["answer"].(string), "187") {
+		t.Fatalf("ask must quote previous validated value: %v", ask)
+	}
+}
+
+func TestLowConfidenceWithNoPriorPublicationAsksNothing(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	for i, v := range []float64{100, 150, 200, 250, 300} {
+		submit(t, ts.URL, string(rune('P'+i)), 2, 70, v, v, string(rune('a'+i))+"A==")
+	}
+	_, out := post(t, ts.URL+"/api/consensus", "")
+	if out["validated"] != false {
+		t.Fatalf("want validated:false, got %v", out)
+	}
+	if n := publications(t, ts.URL); n != 0 {
+		t.Fatalf("publications = %d, want 0", n)
+	}
+	_, ask := get(t, ts.URL+"/api/ask?q=prix")
+	if strings.Contains(ask["answer"].(string), "FCFA") {
+		t.Fatalf("ask must not estimate: %v", ask)
+	}
+}
+
+func TestDuplicateNodeContributesLatestValueOnly(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	submit(t, ts.URL, "A", 1, 92, 900, 900, "QQ==")
+	submit(t, ts.URL, "A", 1, 92, 187, 187, "Qg==")
+	submit(t, ts.URL, "B", 2, 70, 185, 185, "Qw==")
+	submit(t, ts.URL, "C", 2, 70, 188, 188, "RA==")
+	code, out := post(t, ts.URL+"/api/consensus", "")
+	if code != http.StatusOK {
+		t.Fatalf("%d %v", code, out)
+	}
+	if out["confidence"].(float64) != 100 {
+		t.Errorf("confidence = %v, want 100 (stale 900 must not count)", out["confidence"])
+	}
+	if n := len(out["outcomes"].([]any)); n != 3 {
+		t.Errorf("outcomes = %d, want 3 (one per node)", n)
+	}
+}
