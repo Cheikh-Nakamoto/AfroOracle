@@ -130,3 +130,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: backend/internal/controller/{whatsapp.go,whatsapp_client.go,whatsapp_media_test.go,controller.go}, backend/main.go, .env.example
 - open_questions: never run against the live Cloud API (graph version v21.0 and payload shapes from docs); held photos and wamid dedupe are lost on restart and unbounded; reply is sent synchronously inside the webhook request.
 - next_task: live smoke test with a real WhatsApp number; persist wamid/held photos.
+
+## #52 Dashboard resilience (UI-01,03,05,06,07,09,11)
+- done: `frontend/lib/api.ts` fetch wrapper checks HTTP status, throws `ApiError` with backend `{"error"}` message (only listed statuses, e.g. 422, are results); page shows an error banner with Retry, distinct loading/empty rows, buttons disabled in flight, `singleFlight` consensus (double click = 1 request), `latestOnly` aborts stale state/ask responses, Refresh button, consensus 200 `validated:false` shown as a notice. API URL resolved at runtime from `GET /config` (env `API_URL`, fallback same host :8000); consensus sends `Authorization: Bearer`. 9 vitest tests (`npm test`); tsc and `next build` pass; checked /config and 422 shape against a live mock backend on :8123.
+- decisions_made: bearer token comes from env `DASHBOARD_TOKEN` via /config (default `dev-token-FAO` outside production; docker-compose passes it). Token is visible to the browser: demo scope only. Dockerfile/compose no longer bake NEXT_PUBLIC_API_URL; compose sets `API_URL`.
+- files_changed: frontend/{app/page.tsx,app/config/route.ts,lib/api.ts,lib/api.test.ts,package.json,package-lock.json,Dockerfile}, docker-compose.yml
+- open_questions: no ESLint configured (tsc is the lint); no browser/E2E check of the banner; `next start` outside docker needs DASHBOARD_TOKEN else consensus shows 401.
+- next_task: next ready-for-agent audit issue.
