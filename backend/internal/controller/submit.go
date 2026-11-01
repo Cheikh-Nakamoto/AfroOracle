@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/base64"
 	"encoding/json"
+	"math"
 	"net/http"
 	"strings"
 
@@ -15,7 +16,7 @@ type SubmitReq struct {
 	NodeID     string   `json:"node_id"`
 	Tier       int      `json:"tier"`
 	RepScore   int      `json:"rep_score"`
-	Value      float64  `json:"value"`
+	Value      *float64 `json:"value"`
 	PhotoPrice *float64 `json:"photo_price"`
 	Channel    string   `json:"channel"`
 	Transcript string   `json:"transcript"`
@@ -28,20 +29,51 @@ func (c *Controllers) HandleSubmit(w http.ResponseWriter, r *http.Request) {
 		view.WriteError(w, http.StatusBadRequest, "bad json")
 		return
 	}
+	if msg := validateSubmit(req); msg != "" {
+		view.WriteError(w, http.StatusBadRequest, msg)
+		return
+	}
 	status, resp := c.processSubmit(req)
 	view.WriteJSON(w, status, resp)
 }
 
+const (
+	maxNodeID = 64
+	maxPrice  = 1e9
+)
+
+func validPrice(p float64) bool {
+	return p > 0 && p <= maxPrice && !math.IsNaN(p)
+}
+
+// validateSubmit returns a human-readable reason, or "" when req is well formed.
+// Absent value (nil) is distinct from an explicit 0, which is invalid.
+func validateSubmit(req SubmitReq) string {
+	id := strings.TrimSpace(req.NodeID)
+	switch {
+	case id == "" || len(id) > maxNodeID:
+		return "node_id must be 1-64 characters"
+	case req.Tier < 1 || req.Tier > 3:
+		return "tier must be 1, 2 or 3"
+	case req.RepScore < 0 || req.RepScore > 100:
+		return "rep_score must be between 0 and 100"
+	case req.Value != nil && !validPrice(*req.Value):
+		return "value must be a positive number"
+	case req.PhotoPrice != nil && !validPrice(*req.PhotoPrice):
+		return "photo_price must be a positive number"
+	case req.Value == nil && strings.TrimSpace(req.Transcript) == "":
+		return "value or transcript required"
+	}
+	if req.PhotoB64 != "" {
+		if _, err := base64.StdEncoding.DecodeString(req.PhotoB64); err != nil {
+			return "photo_b64 is not valid base64"
+		}
+	}
+	return ""
+}
+
 func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
-	transcript := req.Transcript
-	if strings.TrimSpace(transcript) == "" {
-		transcript = model.Transcribe("")
-	}
-	var typed *float64
-	if req.Value != 0 {
-		typed = &req.Value
-	}
-	ext := model.Extract(transcript, typed)
+	ext := model.Extract(req.Transcript, req.Value)
 	if ext.NeedsConfirmation {
 		return http.StatusOK, map[string]string{"status": "clarify", "question": ext.Question}
 	}
@@ -56,7 +88,7 @@ func (c *Controllers) processSubmit(req SubmitReq) (int, any) {
 	if req.Tier == 3 {
 		proofScorePtr = nil // automatic node (source hash) -> always accepted
 	} else {
-		photoBytes, _ := base64.StdEncoding.DecodeString(req.PhotoB64)
+		photoBytes, _ := base64.StdEncoding.DecodeString(req.PhotoB64) // checked by validateSubmit
 		pr := c.Store.ScorePhoto(req.PhotoPrice, value, photoBytes)
 		proofScorePtr = &pr.Score
 		proof = pr

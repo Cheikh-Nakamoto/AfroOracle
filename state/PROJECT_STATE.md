@@ -67,3 +67,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - **files_changed**: `backend/main.go`, `backend/internal/controller/{router.go,router_test.go,submit.go,consensus.go,whatsapp.go}`, `backend/internal/view/view.go`, `backend/internal/model/model.go`
 - **open_questions**: none.
 - **next_task**: GitHub issues #43, #44, #47, #48 (unblocked by #42).
+
+## #43 Reject empty and invalid submissions (BE-02, BE-09)
+- done: `POST /api/submit` validates before any store write (400 `{"error"}`): node_id 1-64 chars, tier 1-3, rep_score 0-100, value/photo_price >0 and finite, bad base64, and no value+no transcript. Table-driven HTTP tests in router_test.go.
+- decisions_made: `SubmitReq.Value` is `*float64` (absent vs explicit 0; 0 is rejected). Invented-187 sentence now only from `model.Transcribe("")` in mock mode (fixture); real mode returns "" and the controller no longer calls it. Validation lives in `HandleSubmit` only; WhatsApp path unchanged. No audio field exists in the request, so "no audio" = no transcript.
+- files_changed: backend/internal/controller/submit.go, router_test.go, backend/internal/model/ai.go
+- open_questions: WhatsApp webhook still stores node_id "" / tier 0 submissions (not in #43 scope).
+- next_task: next ready-for-agent audit issue. demo.sh: DEMO OK (187, conf 100, D excluded).

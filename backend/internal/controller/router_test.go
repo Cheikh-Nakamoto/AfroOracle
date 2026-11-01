@@ -143,3 +143,45 @@ func TestWrongMethodAndUnknownRouteShapes(t *testing.T) {
 		t.Errorf("bad json = %d, want 400", code)
 	}
 }
+
+func TestSubmitRejectsInvalidInput(t *testing.T) {
+	cases := []struct{ name, body string }{
+		{"empty object", `{}`},
+		{"empty transcript no value", `{"node_id":"A","tier":1,"rep_score":50,"transcript":"  "}`},
+		{"explicit zero value", `{"node_id":"A","tier":1,"rep_score":50,"value":0}`},
+		{"negative value", `{"node_id":"A","tier":1,"rep_score":50,"value":-3}`},
+		{"bad base64", `{"node_id":"A","tier":1,"rep_score":50,"value":187,"photo_b64":"%%%not-base64"}`},
+		{"unknown tier", `{"node_id":"A","tier":9,"rep_score":50,"value":187}`},
+		{"zero tier", `{"node_id":"A","tier":0,"rep_score":50,"value":187}`},
+		{"rep too high", `{"node_id":"A","tier":1,"rep_score":101,"value":187}`},
+		{"rep negative", `{"node_id":"A","tier":1,"rep_score":-1,"value":187}`},
+		{"photo price negative", `{"node_id":"A","tier":1,"rep_score":50,"value":187,"photo_price":-5}`},
+		{"photo price zero", `{"node_id":"A","tier":1,"rep_score":50,"value":187,"photo_price":0}`},
+		{"missing node id", `{"tier":1,"rep_score":50,"value":187}`},
+		{"blank node id", `{"node_id":"  ","tier":1,"rep_score":50,"value":187}`},
+		{"long node id", `{"node_id":"` + strings.Repeat("x", 65) + `","tier":1,"rep_score":50,"value":187}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := newTestServer(1 << 20)
+			defer ts.Close()
+			code, out := post(t, ts.URL+"/api/submit", tc.body)
+			if code < 400 || code > 499 || out["error"] == nil {
+				t.Fatalf("want 4xx with error, got %d %v", code, out)
+			}
+			_, st := get(t, ts.URL+"/api/state")
+			if subs, _ := st["submissions"].([]any); len(subs) != 0 {
+				t.Fatalf("store changed: %v", subs)
+			}
+		})
+	}
+}
+
+func TestSubmitTranscriptOnlyStillWorks(t *testing.T) {
+	ts := newTestServer(1 << 20)
+	defer ts.Close()
+	code, out := post(t, ts.URL+"/api/submit", `{"node_id":"A","tier":3,"rep_score":50,"transcript":"mil 190 le kilo"}`)
+	if code != http.StatusCreated {
+		t.Fatalf("got %d %v", code, out)
+	}
+}
