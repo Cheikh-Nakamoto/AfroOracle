@@ -1,3 +1,4 @@
+import { formatDate } from "./format";
 export type Publication = {
   median: number;
   confidence: number;
@@ -20,7 +21,7 @@ export function publicationView(p: Publication) {
     title: published ? "Publié" : "Non publié (consensus non validé)",
     tx: published && p.tx ? p.tx : "—",
     chain: published && p.chain ? p.chain : "—",
-    when: p.timestamp ? new Date(p.timestamp * 1000).toLocaleString("fr-FR") : "—",
+    when: formatDate(p.timestamp),
     color: published ? "#1b5e20" : "#b71c1c",
     background: published ? "#e8f5e9" : "#fdecea",
   };

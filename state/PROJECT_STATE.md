@@ -151,3 +151,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: frontend/{app/page.tsx,lib/audit.ts,lib/audit.test.ts}, backend/internal/controller/{ask.go,state.go,router_test.go}
 - open_questions: not browser-verified (tsc, vitest, next build, live curl of /api/state outcomes + /api/ask only); ask answer does not yet vary with the question content.
 - next_task: next ready-for-agent audit issue.
+
+## #55 Accessibility, responsive styling, quality scripts (UI-10,16,17,18)
+- done: `npm run typecheck | lint | test | check` (ESLint 8 + next/core-web-vitals, `.eslintrc.json`); all pass with `next build`. Semantic tables (caption, th scope col/row, scrollable focusable region wrappers), skip link, `role=alert` error region and `role=status` live regions (notices, assistant answer), focus-visible outlines, 44px targets, contrast-safe colours, text status (✓/✗ + label, not colour-only). Inline styles/`border`/`cellPadding` replaced by `app/globals.css` with a 600px breakpoint. `lib/format.ts` (fr-FR numbers/dates, text freshness "il y a N min") + 3 tests; 19 vitest total.
+- decisions_made: freshness computed at render (not ticking). Live regions are always-mounted containers so announcements fire.
+- files_changed: frontend/{app/page.tsx,app/layout.tsx,app/globals.css,lib/format.ts,lib/format.test.ts,lib/publication.ts,.eslintrc.json,package.json,package-lock.json}
+- open_questions: headless Chrome screenshot at 375px checked only (layout OK, table scrolls); no axe/screen-reader run; Audit table has 8 columns and scrolls horizontally on mobile.
+- next_task: next ready-for-agent issue.

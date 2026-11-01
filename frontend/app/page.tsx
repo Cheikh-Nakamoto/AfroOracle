@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { latestPublication, publicationView, Publication } from "../lib/publication";
 import { askPath, outcomeRows, truncateHash, Outcome } from "../lib/audit";
+import { formatNumber, freshness } from "../lib/format";
 import { ApiConfig, ApiError, apiFetch, latestOnly, resolveApiUrl, singleFlight } from "../lib/api";
 
 type Sub = {
@@ -128,7 +129,7 @@ export default function Page() {
     h ? (
       <>
         <code title={h}>{truncateHash(h)}</code>{" "}
-        <button onClick={() => copy(h)}>{copied === h ? "Copié" : "Copier"}</button>
+        <button className="small" onClick={() => copy(h)} aria-label={`Copier ${h}`}>{copied === h ? "Copié" : "Copier"}</button>
       </>
     ) : (
       "—"
@@ -138,40 +139,51 @@ export default function Page() {
   const fraud = (s: Sub) => s.proof_score !== null && s.proof_score < 50;
 
   return (
-    <main style={{ fontFamily: "sans-serif", padding: 20, maxWidth: 760 }}>
+    <>
+    <a className="skip-link" href="#main">Aller au contenu</a>
+    <main id="main" className="page">
       <h1>AfriOracle — prix du mil à Kaolack</h1>
-      <button disabled={!cfg || busy !== ""} onClick={() => cfg && runConsensus(cfg, setBusy)}>
-        {busy === "consensus" ? "Consensus en cours…" : "Lancer le consensus"}
-      </button>{" "}
-      <button disabled={!cfg || loading} onClick={() => cfg && refresh(cfg)}>
-        {loading ? "Chargement…" : "Rafraîchir"}
-      </button>
-      <form onSubmit={(e) => { e.preventDefault(); ask(); }} style={{ marginTop: 12 }}>
+      <div className="toolbar" role="group" aria-label="Actions">
+        <button disabled={!cfg || busy !== ""} onClick={() => cfg && runConsensus(cfg, setBusy)}>
+          {busy === "consensus" ? "Consensus en cours…" : "Lancer le consensus"}
+        </button>
+        <button disabled={!cfg || loading} onClick={() => cfg && refresh(cfg)}>
+          {loading ? "Chargement…" : "Rafraîchir"}
+        </button>
+      </div>
+      <form className="ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
         <label>
-          Question à l'assistant :{" "}
-          <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} size={40} />
-        </label>{" "}
+          Question à l&apos;assistant :
+          <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} />
+        </label>
         <button type="submit" disabled={!cfg || busy !== "" || !question.trim()}>
           {busy === "ask" ? "Question en cours…" : "Interroger l'assistant"}
         </button>
       </form>
-      {error && (
-        <div role="alert" style={{ background: "#fdecea", border: "1px solid #c62828", color: "#b71c1c", padding: 10, marginTop: 12 }}>
-          Erreur : {error}{" "}
-          <button onClick={() => (cfg ? refresh(cfg) : init())}>Réessayer</button>
-        </div>
-      )}
-      {notice && <p style={{ color: "#8a5a00" }}>{notice}</p>}
+      <div role="alert">
+        {error && (
+          <div className="banner">
+            Erreur : {error}{" "}
+            <button onClick={() => (cfg ? refresh(cfg) : init())}>Réessayer</button>
+          </div>
+        )}
+      </div>
+      <div role="status" aria-live="polite">
+        {notice && <p className="notice">{notice}</p>}
+        {busy === "consensus" && <span className="sr-only">Consensus en cours</span>}
+      </div>
 
       <h2>Soumissions</h2>
-      <table border={1} cellPadding={6} style={{ borderCollapse: "collapse" }}>
+      <div className="table-wrap" tabIndex={0} role="region" aria-label="Soumissions">
+      <table>
+        <caption className="sr-only">Soumissions des nœuds</caption>
         <thead>
           <tr>
-            <th>Nœud</th>
-            <th>Valeur</th>
-            <th>Preuve</th>
-            <th>Statut</th>
-            <th>Récompense</th>
+            <th scope="col">Nœud</th>
+            <th scope="col">Valeur</th>
+            <th scope="col">Preuve</th>
+            <th scope="col">Statut</th>
+            <th scope="col">Récompense</th>
           </tr>
         </thead>
         <tbody>
@@ -179,12 +191,12 @@ export default function Page() {
             <tr><td colSpan={5}>Chargement…</td></tr>
           )}
           {state && state.submissions.length === 0 && (
-            <tr><td colSpan={5}>Aucune soumission pour l'instant.</td></tr>
+            <tr><td colSpan={5}>Aucune soumission pour l&apos;instant.</td></tr>
           )}
           {(state?.submissions ?? []).map((s, i) => (
-            <tr key={`${s.node_id}-${i}`} style={{ color: fraud(s) ? "red" : undefined }}>
-              <td>{s.node_id}</td>
-              <td>{s.value}</td>
+            <tr key={`${s.node_id}-${i}`} className={fraud(s) ? "fraud" : undefined}>
+              <th scope="row">{s.node_id}</th>
+              <td>{formatNumber(s.value)}</td>
               <td>{s.proof_score === null ? "auto" : s.proof_score}</td>
               <td>{fraud(s) ? "✗ " : ""}{s.status}</td>
               <td>{s.reward}</td>
@@ -192,6 +204,7 @@ export default function Page() {
           ))}
         </tbody>
       </table>
+      </div>
 
       <h2>Dernière publication</h2>
       {(() => {
@@ -199,29 +212,31 @@ export default function Page() {
         if (!p) return <p>{loading && !state ? "Chargement…" : "Aucune publication pour l'instant."}</p>;
         const v = publicationView(p);
         return (
-          <div data-testid="publication" data-published={v.published} style={{ border: `2px solid ${v.color}`, background: v.background, padding: 10 }}>
-            <p style={{ color: v.color, fontWeight: "bold", margin: 0 }}>{v.title}</p>
-            <p>Médiane : {p.median} FCFA/kg</p>
+          <div data-testid="publication" data-published={v.published} className={`publication${v.published ? "" : " unpublished"}`}>
+            <p className="title">{v.published ? "✓ " : "✗ "}{v.title}</p>
+            <p>Médiane : {formatNumber(p.median)} FCFA/kg</p>
             <p>Confiance : {p.confidence}%</p>
             <p>Tx : {p.tx && v.published ? hashView(p.tx) : v.tx} ({v.chain})</p>
-            <p>Date : {v.when}</p>
+            <p>Date : {v.when}{freshness(p.timestamp) && ` (${freshness(p.timestamp)})`}</p>
             {p.aiReportHash && <p>aiReportHash : {hashView(p.aiReportHash)}</p>}
           </div>
         );
       })()}
 
       <h2>Audit du consensus</h2>
-      <table border={1} cellPadding={6} style={{ borderCollapse: "collapse" }}>
+      <div className="table-wrap" tabIndex={0} role="region" aria-label="Audit du consensus">
+      <table>
+        <caption className="sr-only">Audit du consensus par nœud</caption>
         <thead>
-          <tr><th>Nœud</th><th>Statut</th><th>Motif</th><th>Écart</th><th>Δ score</th><th>Récompense</th><th>Canal</th><th>Poids</th></tr>
+          <tr><th scope="col">Nœud</th><th scope="col">Statut</th><th scope="col">Motif</th><th scope="col">Écart</th><th scope="col">Δ score</th><th scope="col">Récompense</th><th scope="col">Canal</th><th scope="col">Poids</th></tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
             <tr><td colSpan={8}>{loading && !state ? "Chargement…" : "Aucun consensus validé pour l'instant."}</td></tr>
           )}
           {rows.map((r) => (
-            <tr key={r.node} data-testid={`outcome-${r.node}`} style={{ background: r.excluded ? "#fdecea" : undefined }}>
-              <td>{r.node}</td>
+            <tr key={r.node} data-testid={`outcome-${r.node}`} className={r.excluded ? "excluded" : undefined}>
+              <th scope="row">{r.node}</th>
               <td><strong>{r.icon} {r.badge}</strong></td>
               <td>{r.reason}</td>
               <td>{r.deviation}</td>
@@ -233,11 +248,14 @@ export default function Page() {
           ))}
         </tbody>
       </table>
+      </div>
 
       <h2>Récompenses</h2>
-      <table border={1} cellPadding={6} style={{ borderCollapse: "collapse" }}>
+      <div className="table-wrap" tabIndex={0} role="region" aria-label="Récompenses">
+      <table>
+        <caption className="sr-only">Récompenses par nœud</caption>
         <thead>
-          <tr><th>Nœud</th><th>Récompense</th><th>Δ score</th></tr>
+          <tr><th scope="col">Nœud</th><th scope="col">Récompense</th><th scope="col">Δ score</th></tr>
         </thead>
         <tbody>
           {(state?.rewards ?? []).length === 0 && (
@@ -245,19 +263,23 @@ export default function Page() {
           )}
           {(state?.rewards ?? []).map((r) => (
             <tr key={r.node_id}>
-              <td>{r.node_id}</td>
+              <th scope="row">{r.node_id}</th>
               <td>{r.reward}</td>
               <td>{r.score_delta ?? 0}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
 
-      {answer && (
-        <p>
-          <strong>Assistant :</strong> {answer}
-        </p>
-      )}
+      <div role="status" aria-live="polite">
+        {answer && (
+          <p className="assistant">
+            <strong>Assistant :</strong> {answer}
+          </p>
+        )}
+      </div>
     </main>
+    </>
   );
 }
