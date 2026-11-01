@@ -36,10 +36,11 @@ func newChainEnv(t *testing.T) *chainEnv {
 	key, _ := crypto.GenerateKey()
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 	be := simulated.NewBackend(types.GenesisAlloc{addr: {Balance: new(big.Int).Mul(big.NewInt(100), big.NewInt(params.Ether))}})
-	t.Cleanup(func() { be.Close() })
 	cl := be.Client()
 	done := make(chan struct{})
+	stopped := make(chan struct{})
 	go func() { // auto-mine so WaitMined returns
+		defer close(stopped)
 		for {
 			select {
 			case <-done:
@@ -49,7 +50,11 @@ func newChainEnv(t *testing.T) *chainEnv {
 			}
 		}
 	}()
-	t.Cleanup(func() { close(done) })
+	t.Cleanup(func() {
+		close(done)
+		<-stopped // miner must exit before the backend closes
+		be.Close()
+	})
 	e := &chainEnv{be: be, cl: cl, key: key}
 	e.agri = e.deploy(t, "AgriculturalData")
 	return e
