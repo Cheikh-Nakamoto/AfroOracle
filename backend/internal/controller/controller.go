@@ -18,6 +18,10 @@ type Controllers struct {
 	// consensusMu serialises consensus runs so snapshot, publish and commit
 	// are atomic: concurrent calls cannot double-publish or double-reward.
 	consensusMu sync.Mutex
+
+	// waSeen dedupes WhatsApp redeliveries by wamid (in memory).
+	waMu   sync.Mutex
+	waSeen map[string]bool
 }
 
 func NewControllers(s model.Store, reg *model.Registry) *Controllers {

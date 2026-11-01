@@ -116,3 +116,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: backend/go.mod, go.sum, main.go, internal/model/{pgstore.go,store.go,store_test.go}, internal/controller/{submit.go,consensus.go}
 - open_questions: read methods swallow DB errors (log only); no versioned migrations beyond IF NOT EXISTS; docker-compose has no postgres service/DATABASE_URL passthrough.
 - next_task: add postgres service to docker-compose if wanted.
+
+## #50 Secure the WhatsApp webhook (BE-06)
+- done: GET verify refuses an unset token (constant-time compare). POST requires valid `X-Hub-Signature-256` (HMAC-SHA256 of raw body, `hmac.Equal`); missing/bad signature or unset `WHATSAPP_APP_SECRET` => 401. Bad JSON logged + 400. Sender `from` resolves to a registered node via the registry (`WHATSAPP_NODES="wa_id:nodeID,..."`), tier/rep from registry; unknown sender => 403, nothing stored. Duplicate `wamid` => one submission (200 `duplicate`). Fixture tests in controller/whatsapp_test.go. demo.sh DEMO OK (187, conf 100, D excluded).
+- decisions_made: wamid dedupe is in-memory (`Controllers.waSeen`), released on 5xx so Meta retries work; lost on restart. Non-text messages and status updates are ignored with 200. Success returns processSubmit's body (201 accepted).
+- files_changed: backend/internal/controller/{whatsapp.go,whatsapp_test.go,controller.go}, backend/internal/model/registry.go, .env.example
+- open_questions: persistent wamid dedupe (store); `internal/model` has an intermittent -race failure seen once (passes on rerun), not investigated; waSeen unbounded.
+- next_task: persist wamid in Store; investigate model race flake.

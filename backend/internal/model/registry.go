@@ -20,11 +20,12 @@ type Node struct {
 
 // Registry is the server-side node registry (token -> node).
 type Registry struct {
-	mu    sync.RWMutex
-	nodes map[string]Node // by ID
+	mu     sync.RWMutex
+	nodes  map[string]Node   // by ID
+	phones map[string]string // WhatsApp wa_id -> node ID
 }
 
-func NewRegistry() *Registry { return &Registry{nodes: map[string]Node{}} }
+func NewRegistry() *Registry { return &Registry{nodes: map[string]Node{}, phones: map[string]string{}} }
 
 // Register adds or replaces a node. Tier and rep are validated.
 func (r *Registry) Register(id, token string, tier, rep int) error {
@@ -35,6 +36,32 @@ func (r *Registry) Register(id, token string, tier, rep int) error {
 	r.nodes[id] = Node{ID: id, Tier: tier, Rep: rep, token: token}
 	r.mu.Unlock()
 	return nil
+}
+
+// BindPhone links a WhatsApp sender id (wa_id) to a registered node.
+func (r *Registry) BindPhone(phone, nodeID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if phone == "" {
+		return fmt.Errorf("empty phone")
+	}
+	if _, ok := r.nodes[nodeID]; !ok {
+		return fmt.Errorf("phone %q: unknown node %q", phone, nodeID)
+	}
+	r.phones[phone] = nodeID
+	return nil
+}
+
+// ByPhone resolves a WhatsApp sender to its registered node.
+func (r *Registry) ByPhone(phone string) (Node, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	id, ok := r.phones[phone]
+	if !ok {
+		return Node{}, false
+	}
+	n, ok := r.nodes[id]
+	return n, ok
 }
 
 // Authenticate returns the node owning token. Every node is compared (no
@@ -69,6 +96,26 @@ var demoNodes = []struct {
 // ("id:token:tier:rep,..."). In mock mode, when the variable is unset, the
 // demo nodes are seeded with dev tokens. Real mode never seeds defaults.
 func LoadRegistry() (*Registry, error) {
+	r, err := loadNodes()
+	if err != nil {
+		return nil, err
+	}
+	// WHATSAPP_NODES="wa_id:nodeID,..." maps WhatsApp senders to nodes.
+	if spec := strings.TrimSpace(os.Getenv("WHATSAPP_NODES")); spec != "" {
+		for _, item := range strings.Split(spec, ",") {
+			p := strings.Split(strings.TrimSpace(item), ":")
+			if len(p) != 2 {
+				return nil, fmt.Errorf("WHATSAPP_NODES: want wa_id:nodeID, got %q", item)
+			}
+			if err := r.BindPhone(p[0], p[1]); err != nil {
+				return nil, fmt.Errorf("WHATSAPP_NODES: %w", err)
+			}
+		}
+	}
+	return r, nil
+}
+
+func loadNodes() (*Registry, error) {
 	r := NewRegistry()
 	if spec := strings.TrimSpace(os.Getenv("AFRIORACLE_NODES")); spec != "" {
 		for _, item := range strings.Split(spec, ",") {
