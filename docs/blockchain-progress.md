@@ -12,6 +12,8 @@
   pour la date demandée (`price not published`).
 - Les contrats rejettent les règlements à prix nul, les confiances au-dessus de 100, une
   adresse oracle nulle et un seuil d’assurance nul.
+- Les clés de stockage utilisent un encodage non ambigu des champs, évitant qu’une
+  concaténation identique écrase un autre couple marché/date.
 - `cd backend && go run ./cmd/check-insurance` lit le résultat de
   `ParametricInsurance.check` en lecture seule, sans clé privée.
 
@@ -26,6 +28,7 @@ NFT n’a été ajouté au prototype.
 
 `go test ./...`, `go vet ./...`, `sh -n scripts/deploy-amoy.sh` et la compilation
 solc 0.8.20 passent. Les contrats n’ont pas encore été déployés publiquement : il
-faut un RPC Amoy et un wallet de test financé en POL de test. Après le déploiement,
+faut un RPC Amoy et un wallet de test financé en POL de test. Toute ancienne instance
+oracle devra être redéployée pour utiliser le nouveau calcul de clé. Après le déploiement,
 configurer `CONTRACT_ADDRESS` pour les publications et `INSURANCE_CONTRACT_ADDRESS`
 pour lire l’assurance.

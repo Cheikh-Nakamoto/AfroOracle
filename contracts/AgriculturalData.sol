@@ -52,7 +52,7 @@ contract AgriculturalData {
     ) external onlyPublisher {
         require(valueX100 > 0, "price must be positive");
         require(confidence <= 100, "confidence out of range");
-        bytes32 key = keccak256(abi.encodePacked(zone, produit, date));
+        bytes32 key = keccak256(abi.encode(zone, produit, date));
         records[key] = Record(
             valueX100,
             block.timestamp,
@@ -78,7 +78,7 @@ contract AgriculturalData {
         string memory produit,
         string memory date
     ) external view returns (uint256 valueX100, uint256 timestamp, uint256 confidence) {
-        bytes32 key = keccak256(abi.encodePacked(zone, produit, date));
+        bytes32 key = keccak256(abi.encode(zone, produit, date));
         Record storage r = records[key];
         return (r.valueX100, r.timestamp, r.confidence);
     }
@@ -87,7 +87,7 @@ contract AgriculturalData {
         external
         onlyPublisher
     {
-        bytes32 key = keccak256(abi.encodePacked(zone, date));
+        bytes32 key = keccak256(abi.encode(zone, date));
         rainfall[key] = valueX100;
     }
 
@@ -96,7 +96,7 @@ contract AgriculturalData {
         view
         returns (uint256)
     {
-        bytes32 key = keccak256(abi.encodePacked(zone, date));
+        bytes32 key = keccak256(abi.encode(zone, date));
         return rainfall[key];
     }
 }

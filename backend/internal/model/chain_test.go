@@ -171,6 +171,73 @@ func TestInsuranceRejectsInvalidConstructorArgs(t *testing.T) {
 	e.deploymentReverts(t, "ParametricInsurance", "threshold must be positive", e.agri, big.NewInt(0))
 }
 
+func TestOracleStringKeysAreUnambiguous(t *testing.T) {
+	e := newChainEnv(t)
+	contractABI := mustABI(t, "AgriculturalData")
+	bound := bind.NewBoundContract(e.agri, contractABI, e.cl, e.cl, e.cl)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	publish := func(zone, produit, date string, value int64) {
+		opts := bind.NewKeyedTransactor(e.key, big.NewInt(1337))
+		opts.Context = ctx
+		transactAndMine(t, ctx, e.cl, bound, opts, "publish", zone, produit, date, big.NewInt(value), big.NewInt(90), "test", "consensus", "report")
+	}
+	publish("A", "BC", "2026-11-02", 11100)
+	publish("AB", "C", "2026-11-02", 22200)
+
+	for _, tc := range []struct {
+		zone, produit, date string
+		want                int64
+	}{
+		{"A", "BC", "2026-11-02", 11100},
+		{"AB", "C", "2026-11-02", 22200},
+	} {
+		out, err := e.cl.CallContract(ctx, callMsg(e.agri, contractABI, "getPrice", tc.zone, tc.produit, tc.date), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		values, err := contractABI.Unpack("getPrice", out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := values[0].(*big.Int).Int64(); got != tc.want {
+			t.Errorf("getPrice(%q,%q,%q) = %d, want %d", tc.zone, tc.produit, tc.date, got, tc.want)
+		}
+	}
+
+	for _, tc := range []struct {
+		zone, date string
+		value      int64
+	}{
+		{"A", "BC", 120},
+		{"AB", "C", 340},
+	} {
+		opts := bind.NewKeyedTransactor(e.key, big.NewInt(1337))
+		opts.Context = ctx
+		transactAndMine(t, ctx, e.cl, bound, opts, "setRainfall", tc.zone, tc.date, big.NewInt(tc.value))
+	}
+	for _, tc := range []struct {
+		zone, date string
+		want       int64
+	}{
+		{"A", "BC", 120},
+		{"AB", "C", 340},
+	} {
+		out, err := e.cl.CallContract(ctx, callMsg(e.agri, contractABI, "getRainfall", tc.zone, tc.date), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		values, err := contractABI.Unpack("getRainfall", out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := values[0].(*big.Int).Int64(); got != tc.want {
+			t.Errorf("getRainfall(%q,%q) = %d, want %d", tc.zone, tc.date, got, tc.want)
+		}
+	}
+}
+
 func TestSimulatedWhenUnconfigured(t *testing.T) {
 	t.Setenv("POLYGON_RPC", "")
 	t.Setenv("PRIVATE_KEY", "")
@@ -317,4 +384,19 @@ func mustABI(t *testing.T, name string) abi.ABI {
 func callMsg(to common.Address, a abi.ABI, method string, args ...any) ethereum.CallMsg {
 	data, _ := a.Pack(method, args...)
 	return ethereum.CallMsg{To: &to, Data: data}
+}
+
+func transactAndMine(t *testing.T, ctx context.Context, client bind.DeployBackend, contract *bind.BoundContract, opts *bind.TransactOpts, method string, args ...any) {
+	t.Helper()
+	tx, err := contract.Transact(opts, method, args...)
+	if err != nil {
+		t.Fatalf("transact %s: %v", method, err)
+	}
+	receipt, err := bind.WaitMined(ctx, client, tx.Hash())
+	if err != nil {
+		t.Fatalf("wait for %s receipt: %v", method, err)
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		t.Fatalf("%s tx %s reverted", method, tx.Hash())
+	}
 }

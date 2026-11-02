@@ -193,3 +193,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: `agents/21-contract-input-validation.md`, `contracts/{AgriculturalData,ParametricInsurance}.sol`, `backend/internal/model/chain_test.go`, `backend/internal/model/testdata/{AgriculturalData,ParametricInsurance}.bin`, `docs/contracts.md`.
 - open_questions: None for these invariants.
 - next_task: Done; validation change pushed on `feat/polygon-amoy-publish`. Run the live Amoy deployment once the team supplies its test RPC and wallet.
+
+## BE-14 Unambiguous oracle record keys — done
+- done: Changed price and rainfall mapping keys from `keccak256(abi.encodePacked(...))` to `keccak256(abi.encode(...))`; added a local EVM regression test proving boundary-ambiguous tuples remain separate. Regenerated AgriculturalData test bytecode with solc 0.8.20. Targeted collision test passes.
+- decisions_made: ABI is unchanged. A deployment using the previous packed encoding must be replaced with a new AgriculturalData instance because contract code/storage behavior is immutable.
+- files_changed: `agents/22-unambiguous-oracle-keys.md`, `contracts/AgriculturalData.sol`, `backend/internal/model/chain_test.go`, `backend/internal/model/testdata/AgriculturalData.bin`, `docs/contracts.md`, `docs/blockchain-progress.md`.
+- open_questions: None; confirm the team has not already deployed an oracle before using an address.
+- next_task: Done; full Go checks passed and fix pushed on `feat/polygon-amoy-publish`.
