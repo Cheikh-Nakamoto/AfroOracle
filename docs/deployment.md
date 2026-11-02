@@ -11,6 +11,7 @@ Build/run/test/deploy, verified against `.env.example`, `backend/go.mod`,
 | `POLYGON_RPC` / `PRIVATE_KEY` / `CONTRACT_ADDRESS` | Live Polygon Amoy publish (chain ID 80002 required) | Simulated `"0x"+sha256` tx, `chain: "simulated"` |
 | `ORACLE_ZONE` / `ORACLE_PRODUIT` | Publication keys passed to `AgriculturalData.publish` | `Kaolack` / `millet` |
 | `INSURANCE_THRESHOLD_X100` | Parametric insurance floor passed to deployment script | `20000` (200 FCFA/kg) |
+| `INSURANCE_CONTRACT_ADDRESS` / `ORACLE_DATE` | Read-only insurance check CLI | no default address / current UTC date |
 | `DATABASE_URL` | PostgreSQL DSN | In-memory mock store (current code has no Postgres wiring) |
 | `WHATSAPP_TOKEN` / `WHATSAPP_VERIFY_TOKEN` | WhatsApp Cloud API | Webhook handshake fails closed (403) |
 | `PORT` | Backend port (read in `backend/main.go`) | `8000` |
@@ -74,6 +75,10 @@ threshold boundary (49 rejected / 50 accepted).
    the demo's defaults.
 4. Start from a **fresh backend** for the demo, run `./scripts/demo.sh`, and trigger a
    validated consensus. Open the returned tx at `https://amoy.polygonscan.com`.
+5. To verify the insurance consumer, set `INSURANCE_CONTRACT_ADDRESS` to the address
+   printed by deployment, then run `cd backend && go run ./cmd/check-insurance`. It
+   checks today's UTC publication by default; set `ORACLE_DATE=YYYY-MM-DD` to select
+   another date. It needs only a read RPC, no private key.
 
 The automated chain tests use go-ethereum's in-process simulated EVM, including the
 oracle publication receipt and insurance payout calculation. They do not deploy

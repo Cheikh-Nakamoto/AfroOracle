@@ -178,4 +178,11 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - decisions_made: Revert on missing data rather than return zero, so consumers can distinguish “no observation” from “published observation but no payout”. Existing threshold trigger and payout math remain the same.
 - files_changed: `agents/19-insurance-requires-price.md`, `contracts/ParametricInsurance.sol`, `backend/internal/model/chain_test.go`, `backend/internal/model/testdata/ParametricInsurance.bin`, `docs/contracts.md`.
 - open_questions: None for this edge case; public Amoy deployment still awaits the team's RPC and test wallet.
-- next_task: Push this fix to `feat/polygon-amoy-publish`; then continue with a reader path to query `ParametricInsurance.check` for the dashboard/demo.
+- next_task: Done; fix pushed on `feat/polygon-amoy-publish`. Follow-up is the read-only insurance checker in BE-12.
+
+## BE-12 Read-only insurance checker — done
+- done: Added `backend/cmd/check-insurance`, which requires an Amoy RPC and insurance address, checks chain ID/code, and calls `thresholdX100` + `check(zone,date)` without a private key. It formats ×100 values as FCFA decimal strings and surfaces the no-publication revert. Added tests and usage docs. `go test ./...`, `go vet ./...` pass.
+- decisions_made: Kept it as a CLI for demo verification; no backend API or dashboard changes. Defaults to Kaolack/millet/current UTC date and allows the date via `ORACLE_DATE`.
+- files_changed: `agents/20-insurance-reader.md`, `backend/cmd/check-insurance/{main.go,main_test.go}`, `.env.example`, `README.md`, `docs/{contracts,deployment,blockchain-progress}.md`.
+- open_questions: Needs the deployed insurance contract address and an Amoy RPC to query actual chain state.
+- next_task: Prepare and run the live Amoy end-to-end flow when the team supplies a test RPC and funded wallet.

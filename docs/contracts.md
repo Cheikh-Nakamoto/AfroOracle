@@ -74,6 +74,10 @@ hash. Without all three values, it uses a deterministic simulated hash.
    `AgriculturalData`, because its constructor sets that wallet as `publisher`.
 5. Run a validated consensus and inspect the successful transaction and `Published`
    event at `https://amoy.polygonscan.com`.
+6. To read the insurance result, set `INSURANCE_CONTRACT_ADDRESS` to the printed
+   insurance address and run `cd backend && go run ./cmd/check-insurance`. Set
+   `ORACLE_DATE` if checking a publication date other than today UTC. The command is
+   read-only and does not need `PRIVATE_KEY`.
 
 The backend publisher wallet must be the contract's `publisher` address. The insurance
 contract's `check` method is read-only: the current demo computes a payout amount but
