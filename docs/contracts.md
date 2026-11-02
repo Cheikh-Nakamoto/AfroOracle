@@ -24,7 +24,7 @@ struct Record {
 | Function | Access | Notes |
 | --- | --- | --- |
 | `constructor()` | — | Sets `publisher = msg.sender` |
-| `publish(zone, produit, date, valueX100, confidence, source, consensusHash, aiReportHash)` | `onlyPublisher` | Requires positive price and confidence ≤ 100; key = `keccak256(abi.encode(zone, produit, date))`; stamps `block.timestamp`; emits `Published(...)` |
+| `publish(zone, produit, date, valueX100, confidence, source, consensusHash, aiReportHash)` | `onlyPublisher` | Requires nonempty market identity/source/hashes, positive price, and confidence ≤ 100; key = `keccak256(abi.encode(zone, produit, date))`; stamps `block.timestamp`; emits `Published(...)` |
 | `getPrice(zone, produit, date)` | view, anyone | Returns `(valueX100, timestamp, confidence)` using the same tuple key |
 | `getPriceRecord(zone, produit, date)` | view, anyone | Returns settlement fields, including `source`, `consensusHash`, and `aiReportHash` |
 | `setRainfall(zone, date, valueX100)` | `onlyPublisher` | Key = `keccak256(abi.encode(zone, date))` |

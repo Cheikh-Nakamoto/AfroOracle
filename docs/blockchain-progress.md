@@ -12,6 +12,8 @@
   pour la date demandée (`price not published`).
 - Les contrats rejettent les règlements à prix nul, les confiances au-dessus de 100, une
   adresse oracle nulle et un seuil d’assurance nul.
+- Chaque prix publié doit aussi avoir sa zone, son produit, sa date, sa source et ses
+  deux hashes de preuve renseignés.
 - Les clés de stockage utilisent un encodage non ambigu des champs, évitant qu’une
   concaténation identique écrase un autre couple marché/date.
 - `cd backend && go run ./cmd/check-insurance` lit le résultat de

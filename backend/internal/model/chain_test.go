@@ -165,6 +165,44 @@ func TestOracleRejectsZeroPriceAndExcessConfidence(t *testing.T) {
 	}
 }
 
+func TestOracleRejectsEmptyPublicationMetadata(t *testing.T) {
+	e := newChainEnv(t)
+	contractABI := mustABI(t, "AgriculturalData")
+	bound := bind.NewBoundContract(e.agri, contractABI, e.cl, e.cl, e.cl)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for _, tc := range []struct {
+		name, zone, product, date, source, consensusHash, aiReportHash, wantRevert string
+	}{
+		{"zone", "", "millet", "2026-11-02", "field", "consensus", "report", "zone is empty"},
+		{"product", "Kaolack", "", "2026-11-02", "field", "consensus", "report", "product is empty"},
+		{"date", "Kaolack", "millet", "", "field", "consensus", "report", "date is empty"},
+		{"source", "Kaolack", "millet", "2026-11-02", "", "consensus", "report", "source is empty"},
+		{"consensus hash", "Kaolack", "millet", "2026-11-02", "field", "", "report", "consensus hash is empty"},
+		{"AI report hash", "Kaolack", "millet", "2026-11-02", "field", "consensus", "", "AI report hash is empty"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := bind.NewKeyedTransactor(e.key, big.NewInt(1337))
+			opts.Context = ctx
+			tx, err := bound.Transact(opts, "publish", tc.zone, tc.product, tc.date, big.NewInt(18700), big.NewInt(90), tc.source, tc.consensusHash, tc.aiReportHash)
+			if err != nil {
+				if !strings.Contains(err.Error(), tc.wantRevert) {
+					t.Fatalf("publication failed for unexpected reason: %v", err)
+				}
+				return
+			}
+			receipt, err := bind.WaitMined(ctx, e.cl, tx.Hash())
+			if err != nil {
+				t.Fatalf("wait on invalid publication: %v", err)
+			}
+			if receipt.Status == types.ReceiptStatusSuccessful {
+				t.Fatalf("empty %s was accepted (tx %s)", tc.name, tx.Hash())
+			}
+		})
+	}
+}
+
 func TestInsuranceRejectsInvalidConstructorArgs(t *testing.T) {
 	e := newChainEnv(t)
 	e.deploymentReverts(t, "ParametricInsurance", "oracle address is zero", common.Address{}, big.NewInt(20000))

@@ -207,3 +207,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: `agents/23-onchain-record-reader.md`, `spec.md`, `contracts/AgriculturalData.sol`, `contracts/abi.json`, `backend/internal/model/{AgriculturalData.abi.json,chain_test.go,testdata/AgriculturalData.bin}`, `docs/{contracts,blockchain-progress}.md`.
 - open_questions: New ABI applies to fresh deployments; no Amoy instance has been confirmed.
 - next_task: Done; full Go checks passed and additive record reader pushed on `feat/polygon-amoy-publish`.
+
+## BE-16 Required publication metadata — done
+- done: `AgriculturalData.publish` now rejects empty zone, product, date, source, consensus hash, and AI report hash. Added local EVM assertions for the revert reasons; regenerated test bytecode with solc 0.8.20. Targeted rejection tests pass.
+- decisions_made: Required metadata is limited to settlement identity and audit fields; rainfall may legitimately be zero.
+- files_changed: `agents/24-required-publication-metadata.md`, `contracts/AgriculturalData.sol`, `backend/internal/model/chain_test.go`, `backend/internal/model/testdata/AgriculturalData.bin`, `docs/{contracts,blockchain-progress}.md`.
+- open_questions: None.
+- next_task: Done; full Go checks passed and final task pushed on `feat/polygon-amoy-publish`.

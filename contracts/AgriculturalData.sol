@@ -50,8 +50,14 @@ contract AgriculturalData {
         string memory consensusHash,
         string memory aiReportHash
     ) external onlyPublisher {
+        require(bytes(zone).length > 0, "zone is empty");
+        require(bytes(produit).length > 0, "product is empty");
+        require(bytes(date).length > 0, "date is empty");
         require(valueX100 > 0, "price must be positive");
         require(confidence <= 100, "confidence out of range");
+        require(bytes(source).length > 0, "source is empty");
+        require(bytes(consensusHash).length > 0, "consensus hash is empty");
+        require(bytes(aiReportHash).length > 0, "AI report hash is empty");
         bytes32 key = keccak256(abi.encode(zone, produit, date));
         records[key] = Record(
             valueX100,
