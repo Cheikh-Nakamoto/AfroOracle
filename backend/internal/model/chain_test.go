@@ -127,7 +127,7 @@ func TestPartialConfigStaysSimulated(t *testing.T) {
 
 func TestRealPublishAndInsuranceRead(t *testing.T) {
 	e := newChainEnv(t)
-	p, err := NewPublisher(e.cl, e.key, e.agri, "Kaolack", "millet")
+	p, err := newPublisher(e.cl, e.key, e.agri, "Kaolack", "millet", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,13 +182,26 @@ func TestRevertedTxIsNotLabelledReal(t *testing.T) {
 	if _, err := bind.WaitMined(ctx, e.cl, fund.Hash()); err != nil {
 		t.Fatal(err)
 	}
-	p, _ := NewPublisher(e.cl, other, e.agri, "Kaolack", "millet")
+	p, _ := newPublisher(e.cl, other, e.agri, "Kaolack", "millet", false)
 	tx, chain, err := p.Publish(ctx, validResult(), map[string]any{})
 	if err == nil {
 		t.Fatalf("expected error from onlyPublisher revert, got tx=%q chain=%q", tx, chain)
 	}
 	if chain == "polygon-amoy" || strings.HasPrefix(chain, "evm-") {
 		t.Fatalf("failed publish carries real label %q", chain)
+	}
+}
+
+func TestPublisherRefusesNonAmoyNetwork(t *testing.T) {
+	e := newChainEnv(t)
+	p, err := NewPublisher(e.cl, e.key, e.agri, "Kaolack", "millet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if tx, chain, err := p.Publish(ctx, validResult(), map[string]any{}); err == nil || tx != "" || chain != "" {
+		t.Fatalf("Publish on chain 1337 = (%q, %q, %v), want refusal without tx", tx, chain, err)
 	}
 }
 

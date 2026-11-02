@@ -52,15 +52,27 @@ interface IAgri {
 ## ABI
 
 `contracts/abi.json` holds the three ABIs (`AgriculturalData`, `ParametricInsurance`,
-`IAgri`) for the backend's `go-ethereum` wiring. The wiring itself is still a `TODO` in
-`backend/main.go:chainPublish` — dev runs emit a simulated `"0x"+sha256` tx.
+`IAgri`). The Go backend embeds the oracle ABI at
+`backend/internal/model/AgriculturalData.abi.json`; a test checks it against the
+canonical ABI. With `POLYGON_RPC`, `PRIVATE_KEY` and `CONTRACT_ADDRESS` configured,
+the backend sends `publish`, waits for a successful receipt, and returns the real tx
+hash. Without all three values, it uses a deterministic simulated hash.
 
 ## Deploy notes (Polygon Amoy)
 
-1. Compile with solc **0.8.20** (matches `pragma solidity ^0.8.20`).
-2. Deploy `AgriculturalData`; the deployer becomes `publisher` (phase-1 stand-in for the
-   foundation multisig described in `our_projetc.md`).
-3. Deploy `ParametricInsurance` with the oracle address and the floor, e.g. a threshold
-   below 18700 to show "no payout" on the golden run.
-4. Fund the deployer with Amoy testnet MATIC; verify the `Published` event for the
-   Kaolack publication, then open the tx at `https://amoy.polygonscan.com` (beat 4).
+1. Compile both contracts with solc **0.8.20** (matches `pragma solidity ^0.8.20`).
+2. Deploy `AgriculturalData` to Polygon Amoy. Its deployer becomes `publisher`; use a
+   dedicated test wallet funded only with Amoy test POL.
+3. Deploy `ParametricInsurance` with the oracle address and a threshold in ×100 units.
+   For a 200 FCFA/kg floor, pass `20000`; a published price of 18700 yields a demo
+   payout of 1300 (13 FCFA/kg in ×100 representation).
+4. Set `POLYGON_RPC`, `PRIVATE_KEY` and `CONTRACT_ADDRESS` in the local environment.
+   Optionally set `ORACLE_ZONE` and `ORACLE_PRODUIT`; defaults are `Kaolack` and
+   `millet`. The backend refuses a configured publisher connection unless its chain
+   ID is Polygon Amoy (80002).
+5. Run a validated consensus and inspect the successful transaction and `Published`
+   event at `https://amoy.polygonscan.com`.
+
+The backend publisher wallet must be the contract's `publisher` address. The insurance
+contract's `check` method is read-only: the current demo computes a payout amount but
+does not transfer tokens or represent a funded insurance policy.

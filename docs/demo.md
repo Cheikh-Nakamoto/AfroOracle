@@ -29,7 +29,7 @@ From `demo/capture-list.md` + `demo/montage.md` (status at time of writing):
 
 - [ ] Beats 1–2 [LIVE]: real market b-roll + agent phone footage (stills only: `demo/assets/beat1-title.svg`, `beat2a-live.svg`).
 - [ ] Beats 2b–5 video: screen recordings (stills with real data already in `demo/assets/`; `raw/{state,consensus,ask}.json` hold the verified snapshots).
-- [ ] Beat 4 explorer: live Amoy tx page — requires the finished `go-ethereum` wiring + `POLYGON_RPC`/`PRIVATE_KEY` (see `docs/deployment.md`).
+- [ ] Beat 4 explorer: live Amoy tx page — requires deployed contracts and `POLYGON_RPC`, `PRIVATE_KEY`, and `CONTRACT_ADDRESS` (see `docs/deployment.md`).
 - [ ] Render the final ~3-min mp4 per `demo/montage.md` (order/timings/voiceover) and drop it under `demo/`; record the path in `state/PROJECT_STATE.md`.
 
 Shoot order (cheapest first): beats 3–6 screens → beat 2 screen → beats 1–2 live.

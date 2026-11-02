@@ -39,25 +39,33 @@ type ChainClient interface {
 
 // Publisher sends AgriculturalData.publish transactions and checks the receipt.
 type Publisher struct {
-	client   ChainClient
-	key      *ecdsa.PrivateKey
-	contract *bind.BoundContract
-	zone     string
-	produit  string
+	client      ChainClient
+	key         *ecdsa.PrivateKey
+	contract    *bind.BoundContract
+	zone        string
+	produit     string
+	requireAmoy bool
 }
 
 // NewPublisher binds to an already deployed AgriculturalData contract.
 func NewPublisher(c ChainClient, key *ecdsa.PrivateKey, contract common.Address, zone, produit string) (*Publisher, error) {
+	return newPublisher(c, key, contract, zone, produit, true)
+}
+
+// newPublisher can target a local simulated EVM in tests. Production callers
+// must use NewPublisher, which only permits Polygon Amoy.
+func newPublisher(c ChainClient, key *ecdsa.PrivateKey, contract common.Address, zone, produit string, requireAmoy bool) (*Publisher, error) {
 	parsed, err := abi.JSON(strings.NewReader(string(agriABIJSON)))
 	if err != nil {
 		return nil, err
 	}
 	return &Publisher{
-		client:   c,
-		key:      key,
-		contract: bind.NewBoundContract(contract, parsed, c, c, c),
-		zone:     zone,
-		produit:  produit,
+		client:      c,
+		key:         key,
+		contract:    bind.NewBoundContract(contract, parsed, c, c, c),
+		zone:        zone,
+		produit:     produit,
+		requireAmoy: requireAmoy,
 	}, nil
 }
 
@@ -77,6 +85,9 @@ func (p *Publisher) Publish(ctx context.Context, result ConsensusResult, report 
 	id, err := p.client.ChainID(ctx)
 	if err != nil {
 		return "", "", fmt.Errorf("chain id: %w", err)
+	}
+	if p.requireAmoy && id.Cmp(big.NewInt(amoyChainID)) != 0 {
+		return "", "", fmt.Errorf("refusing to publish: expected Polygon Amoy chain id %d, connected to %s", amoyChainID, id)
 	}
 	opts := bind.NewKeyedTransactor(p.key, id)
 	opts.Context = ctx

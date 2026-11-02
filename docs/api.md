@@ -46,13 +46,16 @@ Run the weighted median over all stored submissions. Non-POST → 405.
 | `confidence` | 0–100 weight share within 15% |
 | `validated` | `confidence >= 66` |
 | `outcomes` | Array with Go field names: `NodeID, Status, Note, Reward, ScoreDelta, Deviation, Weight` |
-| `tx` | `"0x"+sha256` tx hash (simulated or Amoy label — see below) |
-| `chain` | `"simulated"` (dev) or `"polygon-amoy"` (live keys set) |
+| `tx` | Deterministic `"0x"+sha256` in simulated mode; mined transaction hash in live mode |
+| `chain` | `"simulated"` without full chain configuration; `"polygon-amoy"` after a successful Amoy receipt |
 | `value_x100` | `int64(median*100 + 0.5)` — the on-chain integer |
 | `aiReportHash` | `"0x"+sha256` of `{median, confidence, outcomes: count}` |
 
 Side effects: appends a publication, back-fills every submission's status/reward/score
 delta matched by `NodeID`. No request body is read.
+
+If a configured live publish fails (including a non-Amoy chain ID), returns `502`
+`{"error":"chain publish failed"}` and does not commit the publication.
 
 ## `GET /api/state`
 

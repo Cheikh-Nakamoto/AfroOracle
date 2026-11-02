@@ -52,7 +52,7 @@ Env vars (see `.env.example`):
 | Var | Purpose |
 | --- | --- |
 | `META_API_KEY` | Meta AI models (unset = deterministic mock path) |
-| `POLYGON_RPC` / `PRIVATE_KEY` | Live Amoy publish (unset = simulated `"0x"+sha256` tx) |
+| `POLYGON_RPC` / `PRIVATE_KEY` / `CONTRACT_ADDRESS` | Live Amoy publish (chain ID 80002 required; unset = simulated tx) |
 | `DATABASE_URL` | PostgreSQL DSN (unset = in-memory mock) |
 | `WHATSAPP_TOKEN` / `WHATSAPP_VERIFY_TOKEN` | WhatsApp Cloud API |
 | `PORT` | Backend port (default `8000`) |
@@ -110,5 +110,5 @@ Kaolack millet run in `scripts/demo.sh`: **median 187, confidence 100**, rewards
 
 ## Demo-day TODO
 
-- Set `META_API_KEY` + `POLYGON_RPC`/`PRIVATE_KEY` for real transcription and a live Amoy tx in beat 4 (dev shows `chain: simulated`).
+- Set `META_API_KEY` + `POLYGON_RPC`/`PRIVATE_KEY`/`CONTRACT_ADDRESS` for real transcription and a live Amoy tx in beat 4 (dev shows `chain: simulated`).
 - Render the final ~3-min mp4 and drop it under `demo/` (see `demo/script.md`, `demo/capture-list.md`, `demo/montage.md`).

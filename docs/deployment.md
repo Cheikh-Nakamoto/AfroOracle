@@ -8,12 +8,15 @@ Build/run/test/deploy, verified against `.env.example`, `backend/go.mod`,
 | Var | Purpose | Unset behavior |
 | --- | --- | --- |
 | `META_API_KEY` | Meta AI models (Muse Spark, Voice Transcribe, SAM 3.1) | Deterministic mock path (dev default) |
-| `POLYGON_RPC` / `PRIVATE_KEY` | Live Amoy publish | Simulated `"0x"+sha256` tx, `chain: "simulated"` |
+| `POLYGON_RPC` / `PRIVATE_KEY` / `CONTRACT_ADDRESS` | Live Polygon Amoy publish (chain ID 80002 required) | Simulated `"0x"+sha256` tx, `chain: "simulated"` |
+| `ORACLE_ZONE` / `ORACLE_PRODUIT` | Publication keys passed to `AgriculturalData.publish` | `Kaolack` / `millet` |
 | `DATABASE_URL` | PostgreSQL DSN | In-memory mock store (current code has no Postgres wiring) |
 | `WHATSAPP_TOKEN` / `WHATSAPP_VERIFY_TOKEN` | WhatsApp Cloud API | Webhook handshake fails closed (403) |
 | `PORT` | Backend port (read in `backend/main.go`) | `8000` |
 
-Copy to `.env` for local runs; `PRIVATE_KEY` is testnet-only — never commit it.
+Copy to `.env` for local runs; `PRIVATE_KEY` must be a dedicated test wallet funded
+only with Amoy test POL. Never commit it. A configured publisher refuses to send on a
+chain whose ID is not 80002.
 
 ## Backend (module `afrioracle`, Go; `go 1.22`)
 
@@ -22,8 +25,7 @@ cd backend && go build -o /tmp/afrioracle . && PORT=8000 ./afrioracle
 # or for iteration: cd backend && go run .
 ```
 
-Stdlib `net/http` only — `go.mod` currently has **no external dependency** (the
-`go-ethereum` wiring for live publish is a `TODO` in `chainPublish`).
+The backend uses `go-ethereum` for the receipt-checked `AgriculturalData.publish` call.
 
 ## Frontend (Next.js 14.2.5, React 18)
 
@@ -61,13 +63,18 @@ threshold boundary (49 rejected / 50 accepted).
 
 ## Live Amoy run (demo day)
 
-1. Set `META_API_KEY` (real transcription/extraction/scoring) and
-   `POLYGON_RPC` + `PRIVATE_KEY` (labels tx `"polygon-amoy"`).
-2. Finish the `go-ethereum` wiring in `chainPublish` first — today even the live path
-   returns `reportHash(report)`; without that change there is no real Amoy tx to open
-   in the explorer for beat 4.
-3. Start from a **fresh backend** (no reset endpoint; old submissions accumulate).
-4. Run `./scripts/demo.sh`, then open the tx at `https://amoy.polygonscan.com`.
+1. Deploy `AgriculturalData` and `ParametricInsurance` to Amoy following
+   [`docs/contracts.md`](contracts.md); record the oracle address.
+2. Fund a dedicated publisher test wallet with Amoy test POL. The wallet must be the
+   contract's `publisher`, set by `AgriculturalData`'s constructor.
+3. Set `POLYGON_RPC`, `PRIVATE_KEY`, and `CONTRACT_ADDRESS`; leave the private key out
+   of source control. The backend checks chain ID 80002 before it sends a transaction.
+4. Start from a **fresh backend** for the demo, run `./scripts/demo.sh`, and trigger a
+   validated consensus. Open the returned tx at `https://amoy.polygonscan.com`.
+
+The automated chain tests use go-ethereum's in-process simulated EVM, including the
+oracle publication receipt and insurance payout calculation. They do not deploy
+contracts to public Amoy or validate a live RPC/wallet.
 
 ## Pipeline reruns
 

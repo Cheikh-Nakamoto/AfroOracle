@@ -158,3 +158,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: frontend/{app/page.tsx,app/layout.tsx,app/globals.css,lib/format.ts,lib/format.test.ts,lib/publication.ts,.eslintrc.json,package.json,package-lock.json}
 - open_questions: headless Chrome screenshot at 375px checked only (layout OK, table scrolls); no axe/screen-reader run; Audit table has 8 columns and scrolls horizontally on mobile.
 - next_task: next ready-for-agent issue.
+
+## BE-09 Polygon Amoy publishing guard — done
+- done: Production `NewPublisher` rejects chain IDs other than Amoy (80002) before signing/sending; a regression test covers refusal. Local simulated EVM tests use an unexported constructor. Updated `.env.example`, README and chain docs with `CONTRACT_ADDRESS`, zone/product vars, receipt-backed publishing, and the distinction between local EVM coverage and a public Amoy run. `go test ./...`, `go vet ./...`, and `git diff --check` pass.
+- decisions_made: The insurance demo calculates a read-only payout; it does not transfer tokens or create a funded policy. No AFRO/ERC-20/NFT asset was added because the current demo spec excludes token issuance.
+- files_changed: `agents/17-polygon-amoy.md`, `backend/internal/model/chain.go`, `backend/internal/model/chain_test.go`, `.env.example`, `README.md`, `docs/{architecture,api,demo,contracts,deployment}.md`.
+- open_questions: Public Amoy deployment still needs a dedicated test wallet, test POL, RPC endpoint, and deployed `AgriculturalData` address.
+- next_task: Run Go checks, then prepare and execute the Amoy deployment flow when project credentials/address are available.

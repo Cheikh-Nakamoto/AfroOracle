@@ -30,7 +30,9 @@ Step by step (`backend/main.go` + `backend/ai.go`):
 3. **Consensus** — `POST /api/consensus` runs `runConsensus(subs, 5.0)` over all stored
    submissions, computes median/confidence/outcomes, calls `chainPublish`, appends a
    `Publication`, and back-fills each submission's `status`/`reward`/`score_delta`.
-4. **Publish** — `chainPublish` returns `("0x"+sha256, "simulated")` in dev; see Failure modes.
+4. **Publish** — `chainPublish` uses a deterministic hash in dev. With all Polygon
+   settings present it sends `AgriculturalData.publish`, waits for a successful receipt,
+   and refuses networks other than Amoy (chain ID 80002).
 5. **Consume** — `ParametricInsurance.check(zone, date)` reads the price on-chain;
    `GET /api/ask` quotes the last publication; the dashboard renders `/api/state`.
 
@@ -44,7 +46,8 @@ mocks in `backend/ai.go`. The only on-chain trace of AI work is `aiReportHash`.
 | --- | --- | --- |
 | AI adapters | `backend/ai.go` | `transcribe`, `extract`, `proofScore`, `reportHash`, `modelName` |
 | Consensus | `backend/consensus.go` | `reputation`, `Submission{Weight,Accepted}`, `weightedMedian`, `runConsensus`, `contextAgent` (stub) |
-| HTTP server + state | `backend/main.go` | routes, `processSubmit`, `chainPublish`, in-memory store (`submissions`, `publications`, `fingerprints`, `lastOutcomes`, mutex-guarded) |
+| HTTP server + state | `backend/main.go`, `backend/internal/controller/` | routes and request handling |
+| Chain publisher | `backend/internal/model/chain.go` | go-ethereum transaction submission, receipt check, Amoy chain ID guard |
 | Settlement | `contracts/AgriculturalData.sol` | `Record`, `publish`, `getPrice`, `setRainfall`/`getRainfall`, `onlyPublisher` |
 | Consumer | `contracts/ParametricInsurance.sol` | `check(zone, date)` payout vs `thresholdX100` |
 | Dashboard | `frontend/app/page.tsx` | submissions table, consensus block, assistant answer; `API = "http://localhost:8000"` |
@@ -66,10 +69,9 @@ Rules honored: no media bytes on-chain; on-chain storage is final price + proof 
 
 - **No reset endpoint.** Submissions accumulate across runs on a reused server; `demo.sh`
   assertions tolerate this, but day-of demos should start a fresh backend.
-- **`chainPublish` is a stub.** With `POLYGON_RPC`/`PRIVATE_KEY` set it labels the tx
-  `"polygon-amoy"` but still returns `reportHash(report)` — the real `go-ethereum`
-  call to `AgriculturalData.publish` is a `TODO` in `backend/main.go`, and `go.mod`
-  has no external dependency yet.
+- **Public Amoy deployment is environment-dependent.** Contract deployment and a live
+  RPC/wallet run are not performed by automated tests; configure `POLYGON_RPC`,
+  `PRIVATE_KEY`, and `CONTRACT_ADDRESS` after deploying `AgriculturalData`.
 - **`contextAgent` is a stub.** Returns `""` with no outliers, else a fixed French note;
   no web search.
 - **WhatsApp ingress is text-only.** `POST /webhook/whatsapp` parses
