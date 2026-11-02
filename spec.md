@@ -134,6 +134,7 @@ GET  /                  -> dashboard (Next.js build)
 // AgriculturalData — value stored x100
 publish(zone, produit, date, valueX100, confidence, source, consensusHash, aiReportHash)
 getPrice(zone, produit, date) -> (valueX100, timestamp, confidence)
+getPriceRecord(zone, produit, date) -> (valueX100, timestamp, confidence, source, consensusHash, aiReportHash)
 getRainfall(zone, date)
 
 // ParametricInsurance

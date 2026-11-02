@@ -83,6 +83,30 @@ contract AgriculturalData {
         return (r.valueX100, r.timestamp, r.confidence);
     }
 
+    function getPriceRecord(
+        string memory zone,
+        string memory produit,
+        string memory date
+    ) external view returns (
+        uint256 valueX100,
+        uint256 timestamp,
+        uint256 confidence,
+        string memory source,
+        string memory consensusHash,
+        string memory aiReportHash
+    ) {
+        bytes32 key = keccak256(abi.encode(zone, produit, date));
+        Record storage r = records[key];
+        return (
+            r.valueX100,
+            r.timestamp,
+            r.confidence,
+            r.source,
+            r.consensusHash,
+            r.aiReportHash
+        );
+    }
+
     function setRainfall(string memory zone, string memory date, uint256 valueX100)
         external
         onlyPublisher

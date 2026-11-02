@@ -26,6 +26,7 @@ struct Record {
 | `constructor()` | — | Sets `publisher = msg.sender` |
 | `publish(zone, produit, date, valueX100, confidence, source, consensusHash, aiReportHash)` | `onlyPublisher` | Requires positive price and confidence ≤ 100; key = `keccak256(abi.encode(zone, produit, date))`; stamps `block.timestamp`; emits `Published(...)` |
 | `getPrice(zone, produit, date)` | view, anyone | Returns `(valueX100, timestamp, confidence)` using the same tuple key |
+| `getPriceRecord(zone, produit, date)` | view, anyone | Returns settlement fields, including `source`, `consensusHash`, and `aiReportHash` |
 | `setRainfall(zone, date, valueX100)` | `onlyPublisher` | Key = `keccak256(abi.encode(zone, date))` |
 | `getRainfall(zone, date)` | view, anyone | Returns `uint256` (0 when unset), using the same tuple key |
 
@@ -62,9 +63,9 @@ hash. Without all three values, it uses a deterministic simulated hash.
 
 ## Deploy notes (Polygon Amoy)
 
-This version uses unambiguous `abi.encode` storage keys. If an older
-`AgriculturalData` instance was already deployed, deploy this version as a new
-contract and update `CONTRACT_ADDRESS`; existing deployed contracts cannot be changed.
+This version uses unambiguous `abi.encode` storage keys and adds `getPriceRecord`.
+If an older `AgriculturalData` instance was already deployed, deploy this version as a
+new contract and update `CONTRACT_ADDRESS`; existing deployed contracts cannot be changed.
 
 1. Set `POLYGON_RPC` to an Amoy RPC URL and `PRIVATE_KEY` to a dedicated test wallet
    funded with Amoy test POL. This deploys both contracts from that wallet.

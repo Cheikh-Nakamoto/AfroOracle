@@ -108,6 +108,60 @@
         },
         {
           "internalType": "string",
+          "name": "produit",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "date",
+          "type": "string"
+        }
+      ],
+      "name": "getPriceRecord",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "valueX100",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "confidence",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "source",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "consensusHash",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "aiReportHash",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "zone",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
           "name": "date",
           "type": "string"
         }

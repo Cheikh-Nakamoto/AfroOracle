@@ -280,7 +280,8 @@ func TestRealPublishAndInsuranceRead(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	tx, chain, err := p.Publish(ctx, validResult(), map[string]any{"median": 187.0})
+	report := map[string]any{"median": 187.0}
+	tx, chain, err := p.Publish(ctx, validResult(), report)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,6 +294,20 @@ func TestRealPublishAndInsuranceRead(t *testing.T) {
 	}
 	if len(rcpt.Logs) != 1 {
 		t.Fatalf("expected Published event, got %d logs", len(rcpt.Logs))
+	}
+	agriABI := mustABI(t, "AgriculturalData")
+	recordData, err := e.cl.CallContract(ctx, callMsg(e.agri, agriABI, "getPriceRecord", "Kaolack", "millet", date), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := agriABI.Unpack("getPriceRecord", recordData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record[0].(*big.Int).Int64() != 18700 || record[1].(*big.Int).Sign() == 0 || record[2].(*big.Int).Int64() != 100 ||
+		record[3].(string) != "afrioracle" || record[4].(string) != ReportHash(validResult()) ||
+		record[5].(string) != ReportHash(report) {
+		t.Fatalf("getPriceRecord returned unexpected record: %#v", record)
 	}
 
 	// An insurer contract floor of 200.00: price 187.00 => payout 13.00 (x100 = 1300).

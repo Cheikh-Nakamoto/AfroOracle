@@ -16,6 +16,8 @@
   concaténation identique écrase un autre couple marché/date.
 - `cd backend && go run ./cmd/check-insurance` lit le résultat de
   `ParametricInsurance.check` en lecture seule, sans clé privée.
+- `AgriculturalData.getPriceRecord` permet de relire le prix et ses métadonnées de
+  preuve (source, hash du consensus et hash du rapport IA) directement on-chain.
 
 ## Scénario de démonstration
 
