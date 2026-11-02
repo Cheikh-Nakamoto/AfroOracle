@@ -26,7 +26,8 @@ contract ParametricInsurance {
     /// @param date  e.g. "2026-10-26"
     /// @return payout  parametric payout in x100 units (0 when price >= threshold)
     function check(string memory zone, string memory date) external view returns (uint256 payout) {
-        (uint256 price, , ) = oracle.getPrice(zone, "millet", date);
+        (uint256 price, uint256 publishedAt, ) = oracle.getPrice(zone, "millet", date);
+        require(publishedAt != 0, "price not published");
         if (price >= thresholdX100) {
             return 0; // price at or above the insured floor: no indemnification
         }

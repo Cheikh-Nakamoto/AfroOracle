@@ -172,3 +172,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: `agents/18-amoy-deployment-tool.md`, `backend/cmd/deploy-amoy/{main.go,main_test.go}`, `scripts/deploy-amoy.sh`, `.env.example`, `README.md`, `docs/{contracts,deployment}.md`.
 - open_questions: Live demo requires a team-owned Amoy RPC URL and funded test publisher wallet; do not put its private key in source control or chat.
 - next_task: Run `POLYGON_RPC=... PRIVATE_KEY=... ./scripts/deploy-amoy.sh` from a local shell, set printed oracle address as `CONTRACT_ADDRESS`, then run a validated consensus and verify its receipt on Amoy Polygonscan.
+
+## BE-11 Insurance check requires a published price — done
+- done: `ParametricInsurance.check` now reverts with `price not published` when `AgriculturalData` has no timestamp for the requested market/date. Regenerated the Solidity 0.8.20 test bytecode and extended the local EVM test to assert both the missing-price revert and the existing 18700 → 1300 payout. `go test ./...`, `go vet ./...`, and Solidity compile pass.
+- decisions_made: Revert on missing data rather than return zero, so consumers can distinguish “no observation” from “published observation but no payout”. Existing threshold trigger and payout math remain the same.
+- files_changed: `agents/19-insurance-requires-price.md`, `contracts/ParametricInsurance.sol`, `backend/internal/model/chain_test.go`, `backend/internal/model/testdata/ParametricInsurance.bin`, `docs/contracts.md`.
+- open_questions: None for this edge case; public Amoy deployment still awaits the team's RPC and test wallet.
+- next_task: Push this fix to `feat/polygon-amoy-publish`; then continue with a reader path to query `ParametricInsurance.check` for the dashboard/demo.

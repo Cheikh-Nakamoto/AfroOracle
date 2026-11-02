@@ -44,8 +44,9 @@ interface IAgri {
 - `constructor(_oracle, _thresholdX100)` stores the oracle address, the insurer
   (`msg.sender`), and the insured floor price ×100.
 - `check(zone, date)` (view) reads `oracle.getPrice(zone, "millet", date)` — the produit
-  `"millet"` is hardcoded — and returns `0` when `price >= thresholdX100` (floor held,
-  no indemnification), else `thresholdX100 - price` as the parametric payout in ×100 units.
+  `"millet"` is hardcoded — and reverts with `price not published` when no record exists.
+  It returns `0` when `price >= thresholdX100` (floor held, no indemnification), else
+  `thresholdX100 - price` as the parametric payout in ×100 units.
 - Note: `spec.md` §Contracts phrases the trigger as "price > threshold"; the code pays
   when the price falls **below** the insured floor. The code governs.
 

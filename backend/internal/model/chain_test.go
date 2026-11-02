@@ -127,6 +127,12 @@ func TestPartialConfigStaysSimulated(t *testing.T) {
 
 func TestRealPublishAndInsuranceRead(t *testing.T) {
 	e := newChainEnv(t)
+	ins := e.deploy(t, "ParametricInsurance", e.agri, big.NewInt(20000))
+	insABI := mustABI(t, "ParametricInsurance")
+	date := time.Now().UTC().Format("2006-01-02")
+	if _, err := e.cl.CallContract(context.Background(), callMsg(ins, insABI, "check", "Kaolack", date), nil); err == nil {
+		t.Fatal("insurance check should fail when the oracle has no price for the date")
+	}
 	p, err := newPublisher(e.cl, e.key, e.agri, "Kaolack", "millet", false)
 	if err != nil {
 		t.Fatal(err)
@@ -152,9 +158,7 @@ func TestRealPublishAndInsuranceRead(t *testing.T) {
 	}
 
 	// An insurer contract floor of 200.00: price 187.00 => payout 13.00 (x100 = 1300).
-	ins := e.deploy(t, "ParametricInsurance", e.agri, big.NewInt(20000))
-	insABI := mustABI(t, "ParametricInsurance")
-	out, err := e.cl.CallContract(ctx, callMsg(ins, insABI, "check", "Kaolack", time.Now().UTC().Format("2006-01-02")), nil)
+	out, err := e.cl.CallContract(ctx, callMsg(ins, insABI, "check", "Kaolack", date), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
