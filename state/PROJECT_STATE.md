@@ -165,3 +165,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: `agents/17-polygon-amoy.md`, `backend/internal/model/chain.go`, `backend/internal/model/chain_test.go`, `.env.example`, `README.md`, `docs/{architecture,api,demo,contracts,deployment}.md`.
 - open_questions: Public Amoy deployment still needs a dedicated test wallet, test POL, RPC endpoint, and deployed `AgriculturalData` address.
 - next_task: Run Go checks, then prepare and execute the Amoy deployment flow when project credentials/address are available.
+
+## BE-10 Amoy deployment tool — done
+- done: Added `scripts/deploy-amoy.sh` and a Go deployer that compiles the checked-in Solidity with solc 0.8.20, checks chain ID 80002 before signing, deploys `AgriculturalData` then `ParametricInsurance`, waits for successful receipts, and prints addresses/tx hashes. Insurance floor is configurable in ×100 units (default 20000). Added validation tests and deployment docs. `go test ./...`, `go vet ./...`, and `sh -n scripts/deploy-amoy.sh` pass; solc 0.8.20 compilation passes.
+- decisions_made: No contract deployment was sent; Amoy RPC and test-wallet credentials are unavailable. The deploy script only reads secrets from the shell environment and does not print them.
+- files_changed: `agents/18-amoy-deployment-tool.md`, `backend/cmd/deploy-amoy/{main.go,main_test.go}`, `scripts/deploy-amoy.sh`, `.env.example`, `README.md`, `docs/{contracts,deployment}.md`.
+- open_questions: Live demo requires a team-owned Amoy RPC URL and funded test publisher wallet; do not put its private key in source control or chat.
+- next_task: Run `POLYGON_RPC=... PRIVATE_KEY=... ./scripts/deploy-amoy.sh` from a local shell, set printed oracle address as `CONTRACT_ADDRESS`, then run a validated consensus and verify its receipt on Amoy Polygonscan.

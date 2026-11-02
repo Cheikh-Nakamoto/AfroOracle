@@ -10,6 +10,7 @@ Build/run/test/deploy, verified against `.env.example`, `backend/go.mod`,
 | `META_API_KEY` | Meta AI models (Muse Spark, Voice Transcribe, SAM 3.1) | Deterministic mock path (dev default) |
 | `POLYGON_RPC` / `PRIVATE_KEY` / `CONTRACT_ADDRESS` | Live Polygon Amoy publish (chain ID 80002 required) | Simulated `"0x"+sha256` tx, `chain: "simulated"` |
 | `ORACLE_ZONE` / `ORACLE_PRODUIT` | Publication keys passed to `AgriculturalData.publish` | `Kaolack` / `millet` |
+| `INSURANCE_THRESHOLD_X100` | Parametric insurance floor passed to deployment script | `20000` (200 FCFA/kg) |
 | `DATABASE_URL` | PostgreSQL DSN | In-memory mock store (current code has no Postgres wiring) |
 | `WHATSAPP_TOKEN` / `WHATSAPP_VERIFY_TOKEN` | WhatsApp Cloud API | Webhook handshake fails closed (403) |
 | `PORT` | Backend port (read in `backend/main.go`) | `8000` |
@@ -63,12 +64,14 @@ threshold boundary (49 rejected / 50 accepted).
 
 ## Live Amoy run (demo day)
 
-1. Deploy `AgriculturalData` and `ParametricInsurance` to Amoy following
-   [`docs/contracts.md`](contracts.md); record the oracle address.
-2. Fund a dedicated publisher test wallet with Amoy test POL. The wallet must be the
-   contract's `publisher`, set by `AgriculturalData`'s constructor.
-3. Set `POLYGON_RPC`, `PRIVATE_KEY`, and `CONTRACT_ADDRESS`; leave the private key out
-   of source control. The backend checks chain ID 80002 before it sends a transaction.
+1. Fund a dedicated test wallet with Amoy test POL. Set `POLYGON_RPC` and `PRIVATE_KEY`
+   in the shell environment; leave the private key out of source control.
+2. Run `./scripts/deploy-amoy.sh`. It compiles the contracts with solc 0.8.20, refuses
+   any chain ID other than 80002, deploys both contracts, and prints addresses and tx
+   hashes. Copy `agricultural_data_address` to `CONTRACT_ADDRESS`.
+3. Keep the same publisher key for backend writes: `AgriculturalData` assigns its
+   deployer as the only publisher. Set `ORACLE_ZONE` / `ORACLE_PRODUIT` if changing
+   the demo's defaults.
 4. Start from a **fresh backend** for the demo, run `./scripts/demo.sh`, and trigger a
    validated consensus. Open the returned tx at `https://amoy.polygonscan.com`.
 

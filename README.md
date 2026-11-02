@@ -11,6 +11,7 @@ Decentralized oracle for African market data — demo: the price of millet in Ka
 | [`docs/api.md`](docs/api.md) | Complete endpoint reference with request/response field names |
 | [`docs/contracts.md`](docs/contracts.md) | `AgriculturalData` + `ParametricInsurance`, ABI, Amoy deploy notes |
 | [`docs/deployment.md`](docs/deployment.md) | Env vars, build/run, demo script, tests, live Amoy steps |
+| [`scripts/deploy-amoy.sh`](scripts/deploy-amoy.sh) | Compile and deploy both contracts to Amoy (requires test RPC + funded wallet) |
 | [`docs/demo.md`](docs/demo.md) | 3-min demo walkthrough, golden numbers, day-of shoot list |
 
 ## Architecture

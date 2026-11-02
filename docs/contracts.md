@@ -60,16 +60,17 @@ hash. Without all three values, it uses a deterministic simulated hash.
 
 ## Deploy notes (Polygon Amoy)
 
-1. Compile both contracts with solc **0.8.20** (matches `pragma solidity ^0.8.20`).
-2. Deploy `AgriculturalData` to Polygon Amoy. Its deployer becomes `publisher`; use a
-   dedicated test wallet funded only with Amoy test POL.
-3. Deploy `ParametricInsurance` with the oracle address and a threshold in ×100 units.
-   For a 200 FCFA/kg floor, pass `20000`; a published price of 18700 yields a demo
-   payout of 1300 (13 FCFA/kg in ×100 representation).
-4. Set `POLYGON_RPC`, `PRIVATE_KEY` and `CONTRACT_ADDRESS` in the local environment.
-   Optionally set `ORACLE_ZONE` and `ORACLE_PRODUIT`; defaults are `Kaolack` and
-   `millet`. The backend refuses a configured publisher connection unless its chain
-   ID is Polygon Amoy (80002).
+1. Set `POLYGON_RPC` to an Amoy RPC URL and `PRIVATE_KEY` to a dedicated test wallet
+   funded with Amoy test POL. This deploys both contracts from that wallet.
+2. Run `./scripts/deploy-amoy.sh`. It compiles Solidity **0.8.20**, verifies chain ID
+   80002 before submitting, waits for both deployment receipts, and prints the contract
+   addresses and transaction hashes as JSON.
+3. The default insurance floor is `20000` (200 FCFA/kg); set
+   `INSURANCE_THRESHOLD_X100` to change it. A price of 18700 yields a computed payout
+   of 1300 (13 FCFA/kg in ×100 representation).
+4. Copy the printed `agricultural_data_address` to `CONTRACT_ADDRESS` in the backend
+   environment. The backend publisher wallet must be the same wallet that deployed
+   `AgriculturalData`, because its constructor sets that wallet as `publisher`.
 5. Run a validated consensus and inspect the successful transaction and `Published`
    event at `https://amoy.polygonscan.com`.
 
