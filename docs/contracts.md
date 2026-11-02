@@ -24,7 +24,7 @@ struct Record {
 | Function | Access | Notes |
 | --- | --- | --- |
 | `constructor()` | — | Sets `publisher = msg.sender` |
-| `publish(zone, produit, date, valueX100, confidence, source, consensusHash, aiReportHash)` | `onlyPublisher` | Key = `keccak256(zone, produit, date)`; stamps `block.timestamp`; emits `Published(zone, produit, date, valueX100, confidence, source, consensusHash, aiReportHash)` |
+| `publish(zone, produit, date, valueX100, confidence, source, consensusHash, aiReportHash)` | `onlyPublisher` | Requires positive price and confidence ≤ 100; key = `keccak256(zone, produit, date)`; stamps `block.timestamp`; emits `Published(...)` |
 | `getPrice(zone, produit, date)` | view, anyone | Returns `(valueX100, timestamp, confidence)` |
 | `setRainfall(zone, date, valueX100)` | `onlyPublisher` | Key = `keccak256(zone, date)` |
 | `getRainfall(zone, date)` | view, anyone | Returns `uint256` (0 when unset) |
@@ -41,8 +41,9 @@ interface IAgri {
 }
 ```
 
-- `constructor(_oracle, _thresholdX100)` stores the oracle address, the insurer
-  (`msg.sender`), and the insured floor price ×100.
+- `constructor(_oracle, _thresholdX100)` rejects a zero oracle address or zero
+  threshold, then stores the oracle address, insurer (`msg.sender`), and insured floor
+  price ×100.
 - `check(zone, date)` (view) reads `oracle.getPrice(zone, "millet", date)` — the produit
   `"millet"` is hardcoded — and reverts with `price not published` when no record exists.
   It returns `0` when `price >= thresholdX100` (floor held, no indemnification), else

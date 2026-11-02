@@ -50,6 +50,8 @@ contract AgriculturalData {
         string memory consensusHash,
         string memory aiReportHash
     ) external onlyPublisher {
+        require(valueX100 > 0, "price must be positive");
+        require(confidence <= 100, "confidence out of range");
         bytes32 key = keccak256(abi.encodePacked(zone, produit, date));
         records[key] = Record(
             valueX100,

@@ -186,3 +186,10 @@ Contracts + AI + consensus done (01/02/03). Next: 04 backend server.
 - files_changed: `agents/20-insurance-reader.md`, `backend/cmd/check-insurance/{main.go,main_test.go}`, `.env.example`, `README.md`, `docs/{contracts,deployment,blockchain-progress}.md`.
 - open_questions: Needs the deployed insurance contract address and an Amoy RPC to query actual chain state.
 - next_task: Prepare and run the live Amoy end-to-end flow when the team supplies a test RPC and funded wallet.
+
+## BE-13 Contract input validation — done
+- done: `AgriculturalData.publish` rejects zero prices and confidence > 100. `ParametricInsurance` rejects a zero oracle address and zero threshold. Local EVM tests cover invalid publish/deploy inputs; regenerated both test bytecodes using solc 0.8.20. `go test ./...`, `go vet ./...`, and Solidity compilation pass.
+- decisions_made: Kept ABI/function signatures unchanged. Rainfall zero remains valid; only settlement price is required to be positive.
+- files_changed: `agents/21-contract-input-validation.md`, `contracts/{AgriculturalData,ParametricInsurance}.sol`, `backend/internal/model/chain_test.go`, `backend/internal/model/testdata/{AgriculturalData,ParametricInsurance}.bin`, `docs/contracts.md`.
+- open_questions: None for these invariants.
+- next_task: Done; validation change pushed on `feat/polygon-amoy-publish`. Run the live Amoy deployment once the team supplies its test RPC and wallet.

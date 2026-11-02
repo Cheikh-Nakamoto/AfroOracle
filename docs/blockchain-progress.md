@@ -10,6 +10,8 @@
   sur Amoy, attend les reçus et affiche les adresses et transactions.
 - L’assurance refuse maintenant de calculer une indemnité si aucun prix n’a été publié
   pour la date demandée (`price not published`).
+- Les contrats rejettent les règlements à prix nul, les confiances au-dessus de 100, une
+  adresse oracle nulle et un seuil d’assurance nul.
 - `cd backend && go run ./cmd/check-insurance` lit le résultat de
   `ParametricInsurance.check` en lecture seule, sans clé privée.
 

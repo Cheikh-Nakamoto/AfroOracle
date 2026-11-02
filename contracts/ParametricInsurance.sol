@@ -17,6 +17,8 @@ contract ParametricInsurance {
     uint256 public thresholdX100;
 
     constructor(address _oracle, uint256 _thresholdX100) {
+        require(_oracle != address(0), "oracle address is zero");
+        require(_thresholdX100 > 0, "threshold must be positive");
         oracle = IAgri(_oracle);
         insurer = msg.sender;
         thresholdX100 = _thresholdX100;

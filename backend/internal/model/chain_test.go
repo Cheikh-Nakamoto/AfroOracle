@@ -62,6 +62,24 @@ func newChainEnv(t *testing.T) *chainEnv {
 
 func (e *chainEnv) deploy(t *testing.T, name string, args ...any) common.Address {
 	t.Helper()
+	data := e.creationCode(t, name, args...)
+	opts := bind.NewKeyedTransactor(e.key, big.NewInt(1337))
+	c := bind.NewBoundContract(common.Address{}, abi.ABI{}, e.cl, e.cl, e.cl)
+	tx, err := c.RawCreationTransact(opts, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	addr, err := bind.WaitDeployed(ctx, e.cl, tx.Hash())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return addr
+}
+
+func (e *chainEnv) creationCode(t *testing.T, name string, args ...any) []byte {
+	t.Helper()
 	raw, err := os.ReadFile("testdata/" + name + ".bin")
 	if err != nil {
 		t.Fatal(err)
@@ -81,23 +99,76 @@ func (e *chainEnv) deploy(t *testing.T, name string, args ...any) common.Address
 		}
 		data = append(data, packed...)
 	}
+	return data
+}
+
+func (e *chainEnv) deploymentReverts(t *testing.T, name, wantRevert string, args ...any) {
+	t.Helper()
 	opts := bind.NewKeyedTransactor(e.key, big.NewInt(1337))
 	c := bind.NewBoundContract(common.Address{}, abi.ABI{}, e.cl, e.cl, e.cl)
-	tx, err := c.RawCreationTransact(opts, data)
+	tx, err := c.RawCreationTransact(opts, e.creationCode(t, name, args...))
 	if err != nil {
-		t.Fatal(err)
+		if !strings.Contains(err.Error(), wantRevert) {
+			t.Fatalf("deployment failed for unexpected reason: %v", err)
+		}
+		return // gas estimation rejects the constructor revert before broadcast
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	addr, err := bind.WaitDeployed(ctx, e.cl, tx.Hash())
+	receipt, err := bind.WaitMined(ctx, e.cl, tx.Hash())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("wait on invalid deployment tx: %v", err)
 	}
-	return addr
+	if receipt.Status == types.ReceiptStatusSuccessful {
+		t.Fatalf("%s deployed successfully with invalid constructor arguments", name)
+	}
 }
 
 func validResult() ConsensusResult {
 	return ConsensusResult{Median: 187, Confidence: 100, Validated: true}
+}
+
+func TestOracleRejectsZeroPriceAndExcessConfidence(t *testing.T) {
+	e := newChainEnv(t)
+	contractABI := mustABI(t, "AgriculturalData")
+	bound := bind.NewBoundContract(e.agri, contractABI, e.cl, e.cl, e.cl)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for _, tc := range []struct {
+		name       string
+		valueX100  int64
+		confidence int64
+		wantRevert string
+	}{
+		{name: "zero price", valueX100: 0, confidence: 100, wantRevert: "price must be positive"},
+		{name: "confidence above 100", valueX100: 18700, confidence: 101, wantRevert: "confidence out of range"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := bind.NewKeyedTransactor(e.key, big.NewInt(1337))
+			opts.Context = ctx
+			tx, err := bound.Transact(opts, "publish", "Kaolack", "millet", time.Now().UTC().Format("2006-01-02"), big.NewInt(tc.valueX100), big.NewInt(tc.confidence), "test", "consensus", "report")
+			if err != nil {
+				if !strings.Contains(err.Error(), tc.wantRevert) {
+					t.Fatalf("publication failed for unexpected reason: %v", err)
+				}
+				return
+			}
+			receipt, err := bind.WaitMined(ctx, e.cl, tx.Hash())
+			if err != nil {
+				t.Fatalf("wait on invalid publication: %v", err)
+			}
+			if receipt.Status == types.ReceiptStatusSuccessful {
+				t.Fatalf("invalid settlement was published (tx %s)", tx.Hash())
+			}
+		})
+	}
+}
+
+func TestInsuranceRejectsInvalidConstructorArgs(t *testing.T) {
+	e := newChainEnv(t)
+	e.deploymentReverts(t, "ParametricInsurance", "oracle address is zero", common.Address{}, big.NewInt(20000))
+	e.deploymentReverts(t, "ParametricInsurance", "threshold must be positive", e.agri, big.NewInt(0))
 }
 
 func TestSimulatedWhenUnconfigured(t *testing.T) {
